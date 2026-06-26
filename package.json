@@ -1,0 +1,26 @@
+{
+  "name": "skywatch",
+  "version": "1.0.0",
+  "main": "index.js",
+  "dependencies": {
+    "@react-native-async-storage/async-storage": "^3.1.1",
+    "expo": "~56.0.12",
+    "expo-location": "^56.0.18",
+    "expo-notifications": "^56.0.18",
+    "expo-status-bar": "~56.0.4",
+    "react": "19.2.3",
+    "react-native": "0.85.3"
+  },
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web"
+  },
+  "private": true,
+  "devDependencies": {
+    "@types/react": "^19.2.17",
+    "@types/react-native": "^0.72.8",
+    "typescript": "^6.0.3"
+  }
+}

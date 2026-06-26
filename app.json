@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "SkyWatch",
+    "slug": "SkyWatch",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "頭上を飛ぶ航空機を検索するために現在地が必要です。",
+        "NSLocationAlwaysUsageDescription": "バックグラウンドでも航空機を追跡するために現在地が必要です。"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#060B18",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "頭上を飛ぶ航空機を検索するために現在地が必要です。"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "117b43e3-6802-4d5b-9952-80d4d67d8745"
+      }
+    }
+  }
+}

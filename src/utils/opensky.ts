@@ -1,0 +1,116 @@
+import type { Aircraft, OpenSkyResponse, OpenSkyState } from '../types';
+
+const OPENSKY_BASE = 'https://opensky-network.org/api';
+
+const AIRLINE_NAMES: Record<string, string> = {
+  ANA: '全日空 (ANA)',
+  JAL: '日本航空 (JAL)',
+  JJP: 'ジェットスター・ジャパン',
+  APJ: 'Peach Aviation',
+  SJO: 'スカイマーク',
+  ADO: 'AIR DO',
+  SNJ: 'ソラシドエア',
+  AMX: 'AeroMexico',
+  UAL: 'ユナイテッド航空',
+  DAL: 'デルタ航空',
+  AAL: 'アメリカン航空',
+  BAW: 'ブリティッシュ・エアウェイズ',
+  AFR: 'エールフランス',
+  DLH: 'ルフトハンザ',
+  KAL: '大韓航空',
+  AAR: 'アシアナ航空',
+  CES: '中国東方航空',
+  CCA: '中国国際航空',
+  CSN: '中国南方航空',
+  SIA: 'シンガポール航空',
+  THA: 'タイ国際航空',
+  QFA: 'カンタス航空',
+  UAE: 'エミレーツ航空',
+  THY: 'ターキッシュ エアラインズ',
+};
+
+function getAirlineName(callsign: string | null): string {
+  if (!callsign) return '不明な航空機';
+  const code = callsign.trim().replace(/\d+$/, '').toUpperCase();
+  return AIRLINE_NAMES[code] ?? callsign.trim();
+}
+
+function formatFlightNumber(callsign: string | null): string {
+  if (!callsign) return '----';
+  return callsign.trim();
+}
+
+function haversine(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+): number {
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function toRad(deg: number): number {
+  return (deg * Math.PI) / 180;
+}
+
+export async function fetchAircraftOverhead(
+  latitude: number,
+  longitude: number,
+  radiusDeg = 0.8,
+): Promise<Aircraft[]> {
+  const lamin = latitude - radiusDeg;
+  const lamax = latitude + radiusDeg;
+  const lomin = longitude - radiusDeg;
+  const lomax = longitude + radiusDeg;
+
+  const url = `${OPENSKY_BASE}/states/all?lamin=${lamin}&lamax=${lamax}&lomin=${lomin}&lomax=${lomax}`;
+
+  const response = await fetch(url, {
+    headers: { Accept: 'application/json' },
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenSky API error: ${response.status}`);
+  }
+
+  const data: OpenSkyResponse = await response.json();
+
+  if (!data.states || data.states.length === 0) {
+    return [];
+  }
+
+  return data.states
+    .filter((s: OpenSkyState) => !s[8] && s[5] != null && s[6] != null)
+    .map((s: OpenSkyState): Aircraft => {
+      const altMeters = s[7] ?? s[13] ?? 0;
+      const callsign = s[1] ? s[1].trim() : null;
+      const acLat = s[6] as number;
+      const acLon = s[5] as number;
+      const distKm = haversine(latitude, longitude, acLat, acLon);
+
+      return {
+        icao24: s[0],
+        callsign: callsign ?? '----',
+        airlineName: getAirlineName(callsign),
+        flightNumber: formatFlightNumber(callsign),
+        country: s[2],
+        latitude: acLat,
+        longitude: acLon,
+        altitudeMeters: Math.round(altMeters),
+        altitudeFeet: Math.round(altMeters * 3.28084),
+        velocityMs: s[9],
+        velocityKnots: s[9] != null ? Math.round(s[9] * 1.94384) : null,
+        heading: s[10],
+        verticalRate: s[11],
+        distanceKm: Math.round(distKm * 10) / 10,
+        onGround: s[8],
+      };
+    })
+    .sort((a, b) => a.distanceKm - b.distanceKm);
+}

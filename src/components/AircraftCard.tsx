@@ -114,8 +114,11 @@ export default function AircraftCard({ aircraft, index }: Props): React.JSX.Elem
         />
         <DataCell
           label="速度"
-          value={aircraft.velocityKnots != null ? `${aircraft.velocityKnots} kt` : '--'}
-          sub={aircraft.velocityMs != null ? `${Math.round(aircraft.velocityMs)} m/s` : ''}
+          value={
+            aircraft.velocityMs != null
+              ? `${Math.round(aircraft.velocityMs * 3.6)} km/h`
+              : '--'
+          }
           color={COLORS.text}
         />
         <DataCell

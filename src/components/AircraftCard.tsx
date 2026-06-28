@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
 import type { Aircraft } from '../types';
+import { formatAirportDisplay, type AirportDisplayOptions } from '../utils/airports';
 
 interface Props {
   aircraft: Aircraft;
@@ -33,6 +34,28 @@ const DIRECTIONS = ['北', '北東', '東', '南東', '南', '南西', '西', '�
 function headingToJapanese(heading: number | null): string {
   if (heading == null) return '';
   return DIRECTIONS[Math.round(heading / 45) % 8];
+}
+
+function RouteAirport({
+  label,
+  code,
+  displayOptions,
+}: {
+  label: string;
+  code: string | null;
+  displayOptions?: AirportDisplayOptions;
+}): React.JSX.Element {
+  const airport = formatAirportDisplay(code, displayOptions);
+
+  return (
+    <View style={styles.routeAirport}>
+      <Text style={styles.routeLabel}>{label}</Text>
+      <Text style={styles.routePrimary}>{airport.primary}</Text>
+      {airport.secondary ? (
+        <Text style={styles.routeSecondary}>{airport.secondary}</Text>
+      ) : null}
+    </View>
+  );
 }
 
 function DataCell({ label, value, sub, color, bgColor }: DataCellProps): React.JSX.Element {
@@ -95,6 +118,30 @@ export default function AircraftCard({ aircraft, index }: Props): React.JSX.Elem
           ) : null}
         </View>
         <Text style={styles.airlineName}>{aircraft.airlineName}</Text>
+      </View>
+
+      <View style={styles.routeRow}>
+        <RouteAirport
+          label="出発"
+          code={aircraft.departureAirport}
+          displayOptions={{
+            iata: aircraft.departureAirportIata,
+            municipality: aircraft.departureAirportMunicipality,
+            englishName: aircraft.departureAirportEnglishName,
+            countryIso: aircraft.departureAirportCountry,
+          }}
+        />
+        <Text style={styles.routeArrow}>→</Text>
+        <RouteAirport
+          label="到着"
+          code={aircraft.arrivalAirport}
+          displayOptions={{
+            iata: aircraft.arrivalAirportIata,
+            municipality: aircraft.arrivalAirportMunicipality,
+            englishName: aircraft.arrivalAirportEnglishName,
+            countryIso: aircraft.arrivalAirportCountry,
+          }}
+        />
       </View>
 
       <View style={styles.dataGrid}>
@@ -207,6 +254,39 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.text,
     marginLeft: 26,
+  },
+  routeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    marginLeft: 26,
+    gap: 12,
+  },
+  routeAirport: {
+    flex: 1,
+  },
+  routeLabel: {
+    fontSize: 10,
+    color: COLORS.muted,
+    letterSpacing: 1,
+    marginBottom: 2,
+  },
+  routePrimary: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.white,
+    letterSpacing: 0.5,
+  },
+  routeSecondary: {
+    fontSize: 11,
+    color: COLORS.muted,
+    marginTop: 2,
+    fontFamily: 'monospace',
+  },
+  routeArrow: {
+    fontSize: 18,
+    color: COLORS.cyan,
+    marginTop: 12,
   },
   dataGrid: {
     flexDirection: 'row',

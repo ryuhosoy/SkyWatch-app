@@ -10,8 +10,10 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "頭上を飛ぶ航空機を検索するために現在地が必要です。",
-        "NSLocationAlwaysUsageDescription": "バックグラウンドでも航空機を追跡するために現在地が必要です。"
-      }
+        "NSLocationAlwaysUsageDescription": "バックグラウンドでも航空機を追跡するために現在地が必要です。",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.ryuhosoy.SkyWatch"
     },
     "android": {
       "adaptiveIcon": {

@@ -56,7 +56,12 @@ export function useAircraftOverhead(): UseAircraftOverheadReturn {
       const loc = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
-      const coords: Coordinates = loc.coords;
+      const coords: Coordinates = {
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+        altitude: loc.coords.altitude,
+        accuracy: loc.coords.accuracy ?? undefined,
+      };
       setLocation(coords);
 
       await fetchData(coords);

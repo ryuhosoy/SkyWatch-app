@@ -14,6 +14,16 @@ export interface Aircraft {
   verticalRate: number | null;
   distanceKm: number;
   onGround: boolean;
+  departureAirport: string | null;
+  arrivalAirport: string | null;
+  departureAirportIata: string | null;
+  arrivalAirportIata: string | null;
+  departureAirportMunicipality: string | null;
+  arrivalAirportMunicipality: string | null;
+  departureAirportEnglishName: string | null;
+  arrivalAirportEnglishName: string | null;
+  departureAirportCountry: string | null;
+  arrivalAirportCountry: string | null;
 }
 
 export interface Coordinates {

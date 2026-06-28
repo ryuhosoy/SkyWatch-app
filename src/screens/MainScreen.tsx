@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useAircraftOverhead } from '../hooks/useAircraftOverhead';
+import { formatAirportDisplay } from '../utils/airports';
 import RadarAnimation from '../components/RadarAnimation';
 import AircraftCard from '../components/AircraftCard';
 
@@ -58,6 +59,19 @@ export default function MainScreen(): React.JSX.Element {
   }, [blinkAnim]);
 
   const closestAircraft = aircraft[0] ?? null;
+  const closestRoute = closestAircraft
+    ? `${formatAirportDisplay(closestAircraft.departureAirport, {
+        iata: closestAircraft.departureAirportIata,
+        municipality: closestAircraft.departureAirportMunicipality,
+        englishName: closestAircraft.departureAirportEnglishName,
+        countryIso: closestAircraft.departureAirportCountry,
+      }).label} → ${formatAirportDisplay(closestAircraft.arrivalAirport, {
+        iata: closestAircraft.arrivalAirportIata,
+        municipality: closestAircraft.arrivalAirportMunicipality,
+        englishName: closestAircraft.arrivalAirportEnglishName,
+        countryIso: closestAircraft.arrivalAirportCountry,
+      }).label}`
+    : null;
 
   return (
     <View style={styles.root}>
@@ -126,6 +140,9 @@ export default function MainScreen(): React.JSX.Element {
                 <Text style={styles.nearestDistance}>
                   水平距離 {closestAircraft.distanceKm} km
                 </Text>
+                {closestRoute ? (
+                  <Text style={styles.nearestRoute}>{closestRoute}</Text>
+                ) : null}
                 <View style={styles.nearestAirlinePill}>
                   <Text style={styles.nearestAirlineName} numberOfLines={1}>
                     {closestAircraft.airlineName}
@@ -315,6 +332,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.muted,
     fontFamily: 'monospace',
+  },
+  nearestRoute: {
+    fontSize: 13,
+    color: COLORS.cyan,
+    fontFamily: 'monospace',
+    letterSpacing: 1,
   },
   nearestAirlinePill: {
     marginTop: 6,

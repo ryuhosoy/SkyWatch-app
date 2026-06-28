@@ -1,4 +1,6 @@
 import type { Aircraft, OpenSkyResponse, OpenSkyState } from '../types';
+import { enrichAircraftWithRoutes } from './adsbdb';
+import { fetchOpenSkyWithAuth } from './openskyAuth';
 
 const OPENSKY_BASE = 'https://opensky-network.org/api';
 
@@ -71,9 +73,7 @@ export async function fetchAircraftOverhead(
 
   const url = `${OPENSKY_BASE}/states/all?lamin=${lamin}&lamax=${lamax}&lomin=${lomin}&lomax=${lomax}`;
 
-  const response = await fetch(url, {
-    headers: { Accept: 'application/json' },
-  });
+  const response = await fetchOpenSkyWithAuth(url);
 
   if (!response.ok) {
     throw new Error(`OpenSky API error: ${response.status}`);
@@ -85,7 +85,7 @@ export async function fetchAircraftOverhead(
     return [];
   }
 
-  return data.states
+  const aircraft = data.states
     .filter((s: OpenSkyState) => !s[8] && s[5] != null && s[6] != null)
     .map((s: OpenSkyState): Aircraft => {
       const altMeters = s[7] ?? s[13] ?? 0;
@@ -110,7 +110,23 @@ export async function fetchAircraftOverhead(
         verticalRate: s[11],
         distanceKm: Math.round(distKm * 10) / 10,
         onGround: s[8],
+        departureAirport: null,
+        arrivalAirport: null,
+        departureAirportIata: null,
+        arrivalAirportIata: null,
+        departureAirportMunicipality: null,
+        arrivalAirportMunicipality: null,
+        departureAirportEnglishName: null,
+        arrivalAirportEnglishName: null,
+        departureAirportCountry: null,
+        arrivalAirportCountry: null,
       };
     })
     .sort((a, b) => a.distanceKm - b.distanceKm);
+
+  try {
+    return await enrichAircraftWithRoutes(aircraft);
+  } catch {
+    return aircraft;
+  }
 }

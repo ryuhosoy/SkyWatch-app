@@ -11,8 +11,10 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useAircraftOverhead } from '../hooks/useAircraftOverhead';
+import { useSmoothedAircraft } from '../hooks/useSmoothedAircraft';
 import { formatAirportDisplay } from '../utils/airports';
 import RadarAnimation from '../components/RadarAnimation';
+import SkyMap from '../components/SkyMap';
 import AircraftCard from '../components/AircraftCard';
 
 const COLORS = {
@@ -46,6 +48,8 @@ export default function MainScreen(): React.JSX.Element {
     lastUpdated,
     manualRefresh,
   } = useAircraftOverhead();
+
+  const mapAircraft = useSmoothedAircraft(aircraft, lastUpdated);
 
   const blinkAnim = useRef(new Animated.Value(1)).current;
 
@@ -111,8 +115,10 @@ export default function MainScreen(): React.JSX.Element {
         }
         showsVerticalScrollIndicator={false}
       >
+        <SkyMap location={location} aircraft={mapAircraft} loading={loading} />
+
         <View style={styles.heroSection}>
-          <RadarAnimation size={180} isActive={!loading} />
+          <RadarAnimation size={120} isActive={!loading} />
 
           <View style={styles.heroInfo}>
             {loading ? (
@@ -261,7 +267,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 24,
+    paddingTop: 16,
+    paddingBottom: 20,
     gap: 20,
   },
   heroInfo: {

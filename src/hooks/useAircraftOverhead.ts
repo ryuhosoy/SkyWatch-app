@@ -4,6 +4,8 @@ import { fetchAircraftOverhead } from '../utils/opensky';
 import type { Aircraft, Coordinates, UseAircraftOverheadReturn } from '../types';
 
 const REFRESH_INTERVAL = 15_000;
+const LOCATION_DISTANCE_INTERVAL_M = 15;
+const LOCATION_TIME_INTERVAL_MS = 5_000;
 
 export function useAircraftOverhead(): UseAircraftOverheadReturn {
   const [location, setLocation] = useState<Coordinates | null>(null);
@@ -14,6 +16,7 @@ export function useAircraftOverhead(): UseAircraftOverheadReturn {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [permissionGranted, setPermissionGranted] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const locationRef = useRef<Coordinates | null>(null);
 
   const fetchData = useCallback(
     async (coords: Coordinates, isManual = false): Promise<void> => {
@@ -62,12 +65,15 @@ export function useAircraftOverhead(): UseAircraftOverheadReturn {
         altitude: loc.coords.altitude,
         accuracy: loc.coords.accuracy ?? undefined,
       };
+      locationRef.current = coords;
       setLocation(coords);
 
       await fetchData(coords);
 
       intervalRef.current = setInterval(() => {
-        void fetchData(coords);
+        if (locationRef.current) {
+          void fetchData(locationRef.current);
+        }
       }, REFRESH_INTERVAL);
     } catch {
       setError('位置情報の取得に失敗しました。');
@@ -76,8 +82,8 @@ export function useAircraftOverhead(): UseAircraftOverheadReturn {
   }, [fetchData]);
 
   const manualRefresh = useCallback((): void => {
-    if (location) void fetchData(location, true);
-  }, [location, fetchData]);
+    if (locationRef.current) void fetchData(locationRef.current, true);
+  }, [fetchData]);
 
   useEffect(() => {
     void requestLocationAndStart();
@@ -85,6 +91,36 @@ export function useAircraftOverhead(): UseAircraftOverheadReturn {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!permissionGranted) return;
+
+    let subscription: Location.LocationSubscription | null = null;
+
+    void Location.watchPositionAsync(
+      {
+        accuracy: Location.Accuracy.Balanced,
+        distanceInterval: LOCATION_DISTANCE_INTERVAL_M,
+        timeInterval: LOCATION_TIME_INTERVAL_MS,
+      },
+      (loc) => {
+        const coords: Coordinates = {
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+          altitude: loc.coords.altitude,
+          accuracy: loc.coords.accuracy ?? undefined,
+        };
+        locationRef.current = coords;
+        setLocation(coords);
+      },
+    ).then((sub) => {
+      subscription = sub;
+    });
+
+    return () => {
+      subscription?.remove();
+    };
+  }, [permissionGranted]);
 
   return {
     location,

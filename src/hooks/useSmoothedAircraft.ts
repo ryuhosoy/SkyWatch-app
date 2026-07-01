@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Aircraft } from '../types';
-import { moveByHeading } from '../utils/geo';
+import { bearingDeg, haversineKm, moveByHeading } from '../utils/geo';
 
 const TICK_MS = 1_000;
 const MAX_EXTRAPOLATE_SEC = 18;
@@ -19,12 +19,20 @@ export function useSmoothedAircraft(
     aircraft,
     capturedAt: lastUpdated?.getTime() ?? Date.now(),
   });
+  const previousPositionsRef = useRef<Map<string, { latitude: number; longitude: number }>>(
+    new Map(),
+  );
 
   useEffect(() => {
     snapshotRef.current = {
       aircraft,
       capturedAt: lastUpdated?.getTime() ?? Date.now(),
     };
+    const nextPositions = new Map<string, { latitude: number; longitude: number }>();
+    for (const ac of aircraft) {
+      nextPositions.set(ac.icao24, { latitude: ac.latitude, longitude: ac.longitude });
+    }
+    previousPositionsRef.current = nextPositions;
     setDisplayed(aircraft);
   }, [aircraft, lastUpdated]);
 
@@ -50,10 +58,35 @@ export function useSmoothedAircraft(
             ac.velocityMs * elapsedSec,
           );
 
+          const prev = previousPositionsRef.current.get(ac.icao24);
+          let heading = ac.heading;
+          if (prev) {
+            const distM = haversineKm(
+              prev.latitude,
+              prev.longitude,
+              moved.latitude,
+              moved.longitude,
+            ) * 1000;
+            if (distM > 2) {
+              heading = bearingDeg(
+                prev.latitude,
+                prev.longitude,
+                moved.latitude,
+                moved.longitude,
+              );
+            }
+          }
+
+          previousPositionsRef.current.set(ac.icao24, {
+            latitude: moved.latitude,
+            longitude: moved.longitude,
+          });
+
           return {
             ...ac,
             latitude: moved.latitude,
             longitude: moved.longitude,
+            heading,
           };
         }),
       );

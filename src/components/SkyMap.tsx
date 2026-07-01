@@ -35,15 +35,15 @@ function AircraftMarker({
   const color = isClosest ? COLORS.cyan : COLORS.orange;
   const headingDeg = aircraft.heading ?? 0;
   const rotationDeg = headingDeg + PLANE_ICON_HEADING_OFFSET;
-  const headingKey = Math.round(headingDeg);
+  const renderKey = `${aircraft.latitude.toFixed(6)}:${aircraft.longitude.toFixed(6)}:${headingDeg.toFixed(1)}`;
 
   const [tracksViewChanges, setTracksViewChanges] = useState(true);
 
   useEffect(() => {
     setTracksViewChanges(true);
-    const timer = setTimeout(() => setTracksViewChanges(false), 200);
+    const timer = setTimeout(() => setTracksViewChanges(false), 500);
     return () => clearTimeout(timer);
-  }, [headingKey]);
+  }, [renderKey]);
 
   return (
     <Marker

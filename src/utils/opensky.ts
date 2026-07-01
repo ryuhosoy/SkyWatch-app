@@ -120,6 +120,10 @@ export async function fetchAircraftOverhead(
         arrivalAirportEnglishName: null,
         departureAirportCountry: null,
         arrivalAirportCountry: null,
+        aircraftType: null,
+        aircraftIcaoType: null,
+        aircraftManufacturer: null,
+        photoUrl: null,
       };
     })
     .sort((a, b) => a.distanceKm - b.distanceKm);

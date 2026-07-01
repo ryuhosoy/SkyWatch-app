@@ -1,5 +1,6 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, Animated, Image } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import type { Aircraft } from '../types';
 import { formatAirportDisplay, type AirportDisplayOptions } from '../utils/airports';
 
@@ -68,6 +69,38 @@ function DataCell({ label, value, sub, color, bgColor }: DataCellProps): React.J
   );
 }
 
+function AircraftPhoto({ aircraft }: { aircraft: Aircraft }): React.JSX.Element {
+  const [imageError, setImageError] = useState(false);
+  const photoUrl = aircraft.photoUrl;
+  const showPhoto = photoUrl != null && !imageError;
+
+  useEffect(() => {
+    setImageError(false);
+  }, [photoUrl]);
+
+  return (
+    <View style={styles.photoWrap}>
+      {showPhoto ? (
+        <Image
+          source={{ uri: photoUrl }}
+          style={styles.photo}
+          resizeMode="contain"
+          onError={() => setImageError(true)}
+        />
+      ) : (
+        <View style={styles.photoPlaceholder}>
+          <MaterialIcons name="flight" size={28} color={COLORS.cyan} />
+        </View>
+      )}
+      {aircraft.aircraftIcaoType ? (
+        <View style={styles.typeBadge}>
+          <Text style={styles.typeBadgeText}>{aircraft.aircraftIcaoType}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 export default function AircraftCard({ aircraft, index }: Props): React.JSX.Element {
   const slideAnim = useRef(new Animated.Value(50)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -110,14 +143,23 @@ export default function AircraftCard({ aircraft, index }: Props): React.JSX.Elem
       )}
 
       <View style={styles.cardHeader}>
-        <View style={styles.callsignRow}>
-          <Text style={styles.planeIcon}>✈</Text>
-          <Text style={styles.callsign}>{aircraft.flightNumber}</Text>
-          {aircraft.country ? (
-            <Text style={styles.country}>{aircraft.country}</Text>
+        <AircraftPhoto aircraft={aircraft} />
+        <View style={styles.headerText}>
+          <View style={styles.callsignRow}>
+            <Text style={styles.callsign}>{aircraft.flightNumber}</Text>
+            {aircraft.country ? (
+              <Text style={styles.country}>{aircraft.country}</Text>
+            ) : null}
+          </View>
+          <Text style={styles.airlineName}>{aircraft.airlineName}</Text>
+          {aircraft.aircraftManufacturer ? (
+            <Text style={styles.aircraftModel}>
+              {[aircraft.aircraftIcaoType, aircraft.aircraftManufacturer]
+                .filter(Boolean)
+                .join(' · ')}
+            </Text>
           ) : null}
         </View>
-        <Text style={styles.airlineName}>{aircraft.airlineName}</Text>
       </View>
 
       <View style={styles.routeRow}>
@@ -226,17 +268,53 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   cardHeader: {
+    flexDirection: 'row',
+    gap: 12,
     marginBottom: 12,
+  },
+  headerText: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  photoWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 10,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.panelBorder,
+    backgroundColor: 'rgba(26, 58, 92, 0.4)',
+  },
+  photo: {
+    width: '100%',
+    height: '100%',
+  },
+  photoPlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  typeBadge: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(6, 11, 24, 0.85)',
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+  },
+  typeBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: COLORS.cyan,
+    textAlign: 'center',
+    fontFamily: 'monospace',
   },
   callsignRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     marginBottom: 2,
-  },
-  planeIcon: {
-    fontSize: 16,
-    color: COLORS.cyan,
   },
   callsign: {
     fontSize: 20,
@@ -253,13 +331,17 @@ const styles = StyleSheet.create({
   airlineName: {
     fontSize: 13,
     color: COLORS.text,
-    marginLeft: 26,
+  },
+  aircraftModel: {
+    fontSize: 11,
+    color: COLORS.muted,
+    marginTop: 2,
+    fontFamily: 'monospace',
   },
   routeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
-    marginLeft: 26,
     gap: 12,
   },
   routeAirport: {

@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "SkyWatch",
-    "slug": "SkyWatch",
+    "name": "Flight Overhead",
+    "slug": "Flight Overhead",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -13,7 +13,7 @@
         "NSLocationAlwaysUsageDescription": "バックグラウンドでも航空機を追跡するために現在地が必要です。",
         "ITSAppUsesNonExemptEncryption": false
       },
-      "bundleIdentifier": "com.ryuhosoy.SkyWatch"
+      "bundleIdentifier": "com.ryuhosoy.FlightOverhead"
     },
     "web": {
       "favicon": "./assets/favicon.png"

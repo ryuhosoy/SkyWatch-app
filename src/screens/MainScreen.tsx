@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useAircraftOverhead } from '../hooks/useAircraftOverhead';
+import { useReapproachNotifications } from '../hooks/useReapproachNotifications';
 import { useSmoothedAircraft } from '../hooks/useSmoothedAircraft';
 import { formatAirportDisplay } from '../utils/airports';
 import RadarAnimation from '../components/RadarAnimation';
@@ -47,7 +48,10 @@ export default function MainScreen(): React.JSX.Element {
     error,
     lastUpdated,
     manualRefresh,
+    permissionGranted,
   } = useAircraftOverhead();
+
+  useReapproachNotifications(aircraft, permissionGranted);
 
   const mapAircraft = useSmoothedAircraft(aircraft, lastUpdated);
 

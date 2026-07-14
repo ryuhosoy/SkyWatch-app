@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Animated, Image } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import type { Aircraft } from '../types';
+import { headingDirection, t } from '../i18n';
 import { formatAirportDisplay, type AirportDisplayOptions } from '../utils/airports';
 
 interface Props {
@@ -29,13 +30,6 @@ const COLORS = {
   muted: '#4A7A9B',
   text: '#B8D4E8',
 } as const;
-
-const DIRECTIONS = ['北', '北東', '東', '南東', '南', '南西', '西', '北西'] as const;
-
-function headingToJapanese(heading: number | null): string {
-  if (heading == null) return '';
-  return DIRECTIONS[Math.round(heading / 45) % 8];
-}
 
 function RouteAirport({
   label,
@@ -138,7 +132,7 @@ export default function AircraftCard({ aircraft, index }: Props): React.JSX.Elem
     >
       {isClosest && (
         <View style={styles.closestBadge}>
-          <Text style={styles.closestBadgeText}>★ 最近接</Text>
+          <Text style={styles.closestBadgeText}>{t('closestBadge')}</Text>
         </View>
       )}
 
@@ -164,7 +158,7 @@ export default function AircraftCard({ aircraft, index }: Props): React.JSX.Elem
 
       <View style={styles.routeRow}>
         <RouteAirport
-          label="出発"
+          label={t('departure')}
           code={aircraft.departureAirport}
           displayOptions={{
             iata: aircraft.departureAirportIata,
@@ -175,7 +169,7 @@ export default function AircraftCard({ aircraft, index }: Props): React.JSX.Elem
         />
         <Text style={styles.routeArrow}>→</Text>
         <RouteAirport
-          label="到着"
+          label={t('arrival')}
           code={aircraft.arrivalAirport}
           displayOptions={{
             iata: aircraft.arrivalAirportIata,
@@ -188,21 +182,21 @@ export default function AircraftCard({ aircraft, index }: Props): React.JSX.Elem
 
       <View style={styles.dataGrid}>
         <DataCell
-          label="高度"
+          label={t('altitude')}
           value={`${aircraft.altitudeMeters.toLocaleString()} m`}
           sub={`${aircraft.altitudeFeet.toLocaleString()} ft`}
           color={altColor}
           bgColor={altBg}
         />
         <DataCell
-          label="距離"
+          label={t('distance')}
           value={`${aircraft.distanceKm} km`}
-          sub="水平距離"
+          sub={t('horizontalRange')}
           color={COLORS.cyan}
           bgColor={COLORS.cyanDim}
         />
         <DataCell
-          label="速度"
+          label={t('speed')}
           value={
             aircraft.velocityMs != null
               ? `${Math.round(aircraft.velocityMs * 3.6)} km/h`
@@ -211,9 +205,9 @@ export default function AircraftCard({ aircraft, index }: Props): React.JSX.Elem
           color={COLORS.text}
         />
         <DataCell
-          label="方位"
+          label={t('heading')}
           value={aircraft.heading != null ? `${Math.round(aircraft.heading)}°` : '--'}
-          sub={headingToJapanese(aircraft.heading)}
+          sub={headingDirection(aircraft.heading)}
           color={COLORS.text}
         />
       </View>
@@ -224,7 +218,7 @@ export default function AircraftCard({ aircraft, index }: Props): React.JSX.Elem
             {aircraft.verticalRate > 0 ? '↑' : '↓'}
           </Text>
           <Text style={styles.verticalRateText}>
-            {aircraft.verticalRate > 0 ? '上昇中' : '降下中'}{' '}
+            {aircraft.verticalRate > 0 ? t('climbing') : t('descending')}{' '}
             {Math.abs(Math.round(aircraft.verticalRate * 196.85))} ft/min
           </Text>
         </View>

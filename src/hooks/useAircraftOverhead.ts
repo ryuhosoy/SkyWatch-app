@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import * as Location from 'expo-location';
+import { t } from '../i18n';
 import { fetchAircraftOverhead } from '../utils/opensky';
 import type { Aircraft, Coordinates, UseAircraftOverheadReturn } from '../types';
 
@@ -32,9 +33,9 @@ export function useAircraftOverhead(): UseAircraftOverheadReturn {
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);
         if (msg.includes('429')) {
-          setError('APIリクエスト上限に達しました。しばらくお待ちください。');
+          setError(t('errorRateLimit'));
         } else {
-          setError('航空機データの取得に失敗しました。');
+          setError(t('errorFetchAircraft'));
         }
       } finally {
         setLoading(false);
@@ -50,7 +51,7 @@ export function useAircraftOverhead(): UseAircraftOverheadReturn {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        setError('位置情報の許可が必要です。設定から許可してください。');
+        setError(t('errorLocationPermission'));
         setLoading(false);
         return;
       }
@@ -76,7 +77,7 @@ export function useAircraftOverhead(): UseAircraftOverheadReturn {
         }
       }, REFRESH_INTERVAL);
     } catch {
-      setError('位置情報の取得に失敗しました。');
+      setError(t('errorLocationFetch'));
       setLoading(false);
     }
   }, [fetchData]);

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Platform, Pressable } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT, type Region } from 'react-native-maps';
 import { MaterialIcons } from '@expo/vector-icons';
 import type { Aircraft, Coordinates } from '../types';
+import { headingDirection, t } from '../i18n';
 import { formatAirportDisplay } from '../utils/airports';
 
 /** Material "flight" のデフォルト向き（北東）を真北 0° に合わせる */
@@ -21,17 +22,10 @@ const COLORS = {
 const MAP_HEIGHT = 280;
 const DEFAULT_DELTA = 0.45;
 
-const DIRECTIONS = ['北', '北東', '東', '南東', '南', '南西', '西', '北西'] as const;
-
 interface Props {
   location: Coordinates | null;
   aircraft: Aircraft[];
   loading?: boolean;
-}
-
-function headingToJapanese(heading: number | null): string {
-  if (heading == null) return '';
-  return DIRECTIONS[Math.round(heading / 45) % 8];
 }
 
 function formatRoute(aircraft: Aircraft): string {
@@ -61,7 +55,7 @@ function AircraftPopup({
     aircraft.velocityMs != null ? `${Math.round(aircraft.velocityMs * 3.6)} km/h` : '--';
   const heading =
     aircraft.heading != null
-      ? `${Math.round(aircraft.heading)}° ${headingToJapanese(aircraft.heading)}`
+      ? `${Math.round(aircraft.heading)}° ${headingDirection(aircraft.heading)}`
       : '--';
   const model = [aircraft.aircraftIcaoType, aircraft.aircraftManufacturer]
     .filter(Boolean)
@@ -93,23 +87,23 @@ function AircraftPopup({
 
       <View style={styles.popupStats}>
         <View style={styles.popupStat}>
-          <Text style={styles.popupStatLabel}>高度</Text>
+          <Text style={styles.popupStatLabel}>{t('altitude')}</Text>
           <Text style={styles.popupStatValue}>
             {aircraft.altitudeMeters.toLocaleString()} m
           </Text>
         </View>
         <View style={styles.popupStat}>
-          <Text style={styles.popupStatLabel}>距離</Text>
+          <Text style={styles.popupStatLabel}>{t('distance')}</Text>
           <Text style={[styles.popupStatValue, { color: COLORS.cyan }]}>
             {aircraft.distanceKm} km
           </Text>
         </View>
         <View style={styles.popupStat}>
-          <Text style={styles.popupStatLabel}>速度</Text>
+          <Text style={styles.popupStatLabel}>{t('speed')}</Text>
           <Text style={styles.popupStatValue}>{speed}</Text>
         </View>
         <View style={styles.popupStat}>
-          <Text style={styles.popupStatLabel}>方位</Text>
+          <Text style={styles.popupStatLabel}>{t('heading')}</Text>
           <Text style={styles.popupStatValue}>{heading}</Text>
         </View>
       </View>
@@ -244,7 +238,7 @@ export default function SkyMap({ location, aircraft, loading }: Props): React.JS
     return (
       <View style={styles.placeholder}>
         <Text style={styles.placeholderText}>
-          {loading ? '地図を読み込み中...' : '位置情報を取得できません'}
+          {loading ? t('mapLoading') : t('mapNoLocation')}
         </Text>
       </View>
     );
@@ -284,15 +278,15 @@ export default function SkyMap({ location, aircraft, loading }: Props): React.JS
         <View style={styles.legend}>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: COLORS.cyan }]} />
-            <Text style={styles.legendText}>最近接</Text>
+            <Text style={styles.legendText}>{t('legendClosest')}</Text>
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: COLORS.orange }]} />
-            <Text style={styles.legendText}>航空機</Text>
+            <Text style={styles.legendText}>{t('legendAircraft')}</Text>
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: '#4285F4' }]} />
-            <Text style={styles.legendText}>現在地</Text>
+            <Text style={styles.legendText}>{t('legendYou')}</Text>
           </View>
         </View>
       )}

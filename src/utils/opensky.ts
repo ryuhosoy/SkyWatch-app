@@ -1,10 +1,11 @@
 import type { Aircraft, OpenSkyResponse, OpenSkyState } from '../types';
+import { t, isJapanese } from '../i18n';
 import { enrichAircraftWithRoutes } from './adsbdb';
 import { fetchOpenSkyWithAuth } from './openskyAuth';
 
 const OPENSKY_BASE = 'https://opensky-network.org/api';
 
-const AIRLINE_NAMES: Record<string, string> = {
+const AIRLINE_NAMES_JA: Record<string, string> = {
   ANA: '全日空 (ANA)',
   JAL: '日本航空 (JAL)',
   JJP: 'ジェットスター・ジャパン',
@@ -31,10 +32,38 @@ const AIRLINE_NAMES: Record<string, string> = {
   THY: 'ターキッシュ エアラインズ',
 };
 
+const AIRLINE_NAMES_EN: Record<string, string> = {
+  ANA: 'All Nippon Airways',
+  JAL: 'Japan Airlines',
+  JJP: 'Jetstar Japan',
+  APJ: 'Peach Aviation',
+  SJO: 'Skymark Airlines',
+  ADO: 'AIR DO',
+  SNJ: 'Solaseed Air',
+  AMX: 'AeroMexico',
+  UAL: 'United Airlines',
+  DAL: 'Delta Air Lines',
+  AAL: 'American Airlines',
+  BAW: 'British Airways',
+  AFR: 'Air France',
+  DLH: 'Lufthansa',
+  KAL: 'Korean Air',
+  AAR: 'Asiana Airlines',
+  CES: 'China Eastern Airlines',
+  CCA: 'Air China',
+  CSN: 'China Southern Airlines',
+  SIA: 'Singapore Airlines',
+  THA: 'Thai Airways',
+  QFA: 'Qantas',
+  UAE: 'Emirates',
+  THY: 'Turkish Airlines',
+};
+
 function getAirlineName(callsign: string | null): string {
-  if (!callsign) return '不明な航空機';
+  if (!callsign) return t('unknownAircraft');
   const code = callsign.trim().replace(/\d+$/, '').toUpperCase();
-  return AIRLINE_NAMES[code] ?? callsign.trim();
+  const map = isJapanese ? AIRLINE_NAMES_JA : AIRLINE_NAMES_EN;
+  return map[code] ?? callsign.trim();
 }
 
 function formatFlightNumber(callsign: string | null): string {

@@ -1,4 +1,6 @@
 /** 日本・近隣地域（漢字・かな表記） */
+import { isJapanese, t } from '../i18n';
+
 const DOMESTIC_AIRPORT_NAMES: Record<string, string> = {
   RJTT: '東京・羽田',
   RJAA: '成田',
@@ -447,11 +449,32 @@ export function formatAirportDisplay(
   options?: AirportDisplayOptions,
 ): AirportDisplay {
   if (!code) {
-    return { code: '不明', primary: '不明', secondary: null, label: '不明' };
+    const unknown = t('unknown');
+    return { code: unknown, primary: unknown, secondary: null, label: unknown };
   }
 
   const icao = code.toUpperCase();
   const iata = options?.iata?.toUpperCase() ?? null;
+
+  // English users: prefer English airport/city names from adsbdb
+  if (!isJapanese) {
+    const fromEnglish = options?.englishName
+      ? shortenEnglishName(options.englishName)
+      : null;
+    const englishPrimary = fromEnglish || options?.municipality || iata || icao;
+    const secondary =
+      iata && iata !== englishPrimary
+        ? iata
+        : icao !== englishPrimary
+          ? icao
+          : null;
+    return {
+      code: icao,
+      primary: englishPrimary,
+      secondary,
+      label: englishPrimary,
+    };
+  }
 
   const domesticName =
     isJapanAirport(icao, options?.countryIso) ? resolveDomesticName(icao, iata) : null;

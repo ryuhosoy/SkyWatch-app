@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import type { Aircraft } from '../types';
+import { t } from '../i18n';
 import { formatAirportDisplay } from './airports';
 import { NOTIFY_RADIUS_KM } from '../constants/notifications';
 
@@ -37,7 +38,10 @@ function formatRoute(aircraft: Aircraft): string | null {
 
 function buildNotificationBody(aircraft: Aircraft): string {
   const parts = [
-    `距離 ${aircraft.distanceKm}km・高度 ${aircraft.altitudeMeters.toLocaleString()}m`,
+    t('notifyBody', {
+      dist: aircraft.distanceKm,
+      alt: aircraft.altitudeMeters.toLocaleString(),
+    }),
     aircraft.airlineName !== aircraft.flightNumber ? aircraft.airlineName : null,
     formatRoute(aircraft),
   ].filter((p): p is string => p != null && p.length > 0);
@@ -72,7 +76,7 @@ export async function notifyReapproach(aircraft: Aircraft): Promise<void> {
 
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: `✈ ${flightLabel} が再接近（${NOTIFY_RADIUS_KM}km以内）`,
+      title: t('notifyTitle', { flight: flightLabel, km: NOTIFY_RADIUS_KM }),
       body: buildNotificationBody(aircraft),
       sound: true,
     },

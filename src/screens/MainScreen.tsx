@@ -13,6 +13,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useAircraftOverhead } from '../hooks/useAircraftOverhead';
 import { useReapproachNotifications } from '../hooks/useReapproachNotifications';
 import { useSmoothedAircraft } from '../hooks/useSmoothedAircraft';
+import { formatLocaleTime, t } from '../i18n';
 import { formatAirportDisplay } from '../utils/airports';
 import RadarAnimation from '../components/RadarAnimation';
 import SkyMap from '../components/SkyMap';
@@ -29,10 +30,6 @@ const COLORS = {
   muted: '#4A7A9B',
   text: '#B8D4E8',
 } as const;
-
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString('ja-JP', { hour12: false });
-}
 
 function formatCoord(val: number, posChar: string, negChar: string): string {
   const sign = val >= 0 ? posChar : negChar;
@@ -90,7 +87,7 @@ export default function MainScreen(): React.JSX.Element {
           <Text style={styles.logoText}>
             SKY<Text style={styles.logoAccent}>WATCH</Text>
           </Text>
-          <Text style={styles.tagline}>頭上の空を見る</Text>
+          <Text style={styles.tagline}>{t('tagline')}</Text>
         </View>
         <View style={styles.headerRight}>
           <Animated.View
@@ -128,27 +125,29 @@ export default function MainScreen(): React.JSX.Element {
             {loading ? (
               <View style={styles.loadingBox}>
                 <Animated.Text style={[styles.loadingText, { opacity: blinkAnim }]}>
-                  スキャン中...
+                  {t('scanning')}
                 </Animated.Text>
-                <Text style={styles.loadingSubText}>位置情報を取得しています</Text>
+                <Text style={styles.loadingSubText}>{t('fetchingLocation')}</Text>
               </View>
             ) : error ? (
               <View style={styles.errorBox}>
                 <Text style={styles.errorIcon}>⚠</Text>
                 <Text style={styles.errorText}>{error}</Text>
                 <TouchableOpacity style={styles.retryBtn} onPress={manualRefresh}>
-                  <Text style={styles.retryBtnText}>再試行</Text>
+                  <Text style={styles.retryBtnText}>{t('retry')}</Text>
                 </TouchableOpacity>
               </View>
             ) : closestAircraft ? (
               <View style={styles.nearestBox}>
-                <Text style={styles.nearestLabel}>最近接航空機</Text>
+                <Text style={styles.nearestLabel}>{t('nearestAircraft')}</Text>
                 <Text style={styles.nearestCallsign}>{closestAircraft.flightNumber}</Text>
                 <Text style={styles.nearestAltitude}>
-                  {closestAircraft.altitudeMeters.toLocaleString()} m 上空
+                  {t('altitudeAbove', {
+                    alt: closestAircraft.altitudeMeters.toLocaleString(),
+                  })}
                 </Text>
                 <Text style={styles.nearestDistance}>
-                  水平距離 {closestAircraft.distanceKm} km
+                  {t('horizontalDistance', { dist: closestAircraft.distanceKm })}
                 </Text>
                 {closestRoute ? (
                   <Text style={styles.nearestRoute}>{closestRoute}</Text>
@@ -162,8 +161,8 @@ export default function MainScreen(): React.JSX.Element {
             ) : (
               <View style={styles.emptyBox}>
                 <Text style={styles.emptyIcon}>🌌</Text>
-                <Text style={styles.emptyText}>頭上に航空機なし</Text>
-                <Text style={styles.emptySubText}>半径約90km圏内</Text>
+                <Text style={styles.emptyText}>{t('noAircraftOverhead')}</Text>
+                <Text style={styles.emptySubText}>{t('radiusAbout90km')}</Text>
               </View>
             )}
           </View>
@@ -178,7 +177,7 @@ export default function MainScreen(): React.JSX.Element {
               {formatCoord(location.longitude, 'E', 'W')}
             </Text>
             <Text style={styles.updateTime}>
-              {lastUpdated ? formatTime(lastUpdated) : '--:--:--'}
+              {lastUpdated ? formatLocaleTime(lastUpdated) : '--:--:--'}
             </Text>
           </View>
         )}
@@ -187,11 +186,11 @@ export default function MainScreen(): React.JSX.Element {
           <View style={styles.countBar}>
             <Text style={styles.countText}>
               {aircraft.length > 0
-                ? `${aircraft.length}機を追跡中`
-                : '現在追跡中の航空機なし'}
+                ? t('trackingCount', { count: aircraft.length })
+                : t('trackingNone')}
             </Text>
             <TouchableOpacity onPress={manualRefresh} style={styles.refreshBtn}>
-              <Text style={styles.refreshBtnText}>↻ 更新</Text>
+              <Text style={styles.refreshBtnText}>{t('refresh')}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -205,9 +204,7 @@ export default function MainScreen(): React.JSX.Element {
         )}
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            データ: OpenSky Network  •  15秒ごとに自動更新
-          </Text>
+          <Text style={styles.footerText}>{t('footerData')}</Text>
         </View>
       </ScrollView>
     </View>

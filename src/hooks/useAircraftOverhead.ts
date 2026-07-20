@@ -10,6 +10,7 @@ const LOCATION_TIME_INTERVAL_MS = 5_000;
 
 export function useAircraftOverhead(): UseAircraftOverheadReturn {
   const [location, setLocation] = useState<Coordinates | null>(null);
+  const [heading, setHeading] = useState<number | null>(null);
   const [aircraft, setAircraft] = useState<Aircraft[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -123,8 +124,35 @@ export function useAircraftOverhead(): UseAircraftOverheadReturn {
     };
   }, [permissionGranted]);
 
+  useEffect(() => {
+    if (!permissionGranted) return;
+
+    let subscription: Location.LocationSubscription | null = null;
+
+    void Location.watchHeadingAsync((update) => {
+      const deg =
+        update.trueHeading >= 0 ? update.trueHeading : update.magHeading;
+      if (!Number.isFinite(deg) || deg < 0) return;
+      const next = Math.round(deg);
+      setHeading((prev) => {
+        if (prev == null) return next;
+        const delta = Math.abs(next - prev) % 360;
+        const diff = Math.min(delta, 360 - delta);
+        // 細かいブレで再描画しない（約2°未満は無視）
+        return diff < 2 ? prev : next;
+      });
+    }).then((sub) => {
+      subscription = sub;
+    });
+
+    return () => {
+      subscription?.remove();
+    };
+  }, [permissionGranted]);
+
   return {
     location,
+    heading,
     aircraft,
     loading,
     refreshing,

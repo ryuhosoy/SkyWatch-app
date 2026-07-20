@@ -81,6 +81,8 @@ export interface OpenSkyResponse {
 
 export interface UseAircraftOverheadReturn {
   location: Coordinates | null;
+  /** 端末の向き（真北からの度数）。未取得時は null */
+  heading: number | null;
   aircraft: Aircraft[];
   loading: boolean;
   refreshing: boolean;

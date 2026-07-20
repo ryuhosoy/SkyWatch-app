@@ -39,6 +39,7 @@ function formatCoord(val: number, posChar: string, negChar: string): string {
 export default function MainScreen(): React.JSX.Element {
   const {
     location,
+    heading,
     aircraft,
     loading,
     refreshing,
@@ -116,7 +117,12 @@ export default function MainScreen(): React.JSX.Element {
         }
         showsVerticalScrollIndicator={false}
       >
-        <SkyMap location={location} aircraft={mapAircraft} loading={loading} />
+        <SkyMap
+          location={location}
+          heading={heading}
+          aircraft={mapAircraft}
+          loading={loading}
+        />
 
         <View style={styles.heroSection}>
           <RadarAnimation size={120} isActive={!loading} />

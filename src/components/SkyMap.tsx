@@ -1,13 +1,23 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Platform, Pressable } from 'react-native';
-import MapView, { Marker, PROVIDER_DEFAULT, type Region } from 'react-native-maps';
+import MapView, { Marker, Polygon, PROVIDER_DEFAULT, type Region } from 'react-native-maps';
 import { MaterialIcons } from '@expo/vector-icons';
 import type { Aircraft, Coordinates } from '../types';
 import { headingDirection, t } from '../i18n';
 import { formatAirportDisplay } from '../utils/airports';
+import { moveByHeading } from '../utils/geo';
 
 /** Material "flight" のデフォルト向き（北東）を真北 0° に合わせる */
 const PLANE_ICON_HEADING_OFFSET = -45;
+
+/** 1°緯度あたりの距離（m） */
+const METERS_PER_DEG_LAT = 111_320;
+/** 表示南北幅に対する光の長さの割合 */
+const BEAM_LENGTH_FRACTION = 0.18;
+/** 長さに対する手元半幅の割合 */
+const BEAM_BASE_RATIO = 0.12;
+const BEAM_LENGTH_MIN_M = 120;
+const BEAM_LENGTH_MAX_M = 80_000;
 
 const COLORS = {
   bg: '#060B18',
@@ -24,6 +34,8 @@ const DEFAULT_DELTA = 0.45;
 
 interface Props {
   location: Coordinates | null;
+  /** 端末の向き（真北からの度数）。未取得時は null */
+  heading?: number | null;
   aircraft: Aircraft[];
   loading?: boolean;
 }
@@ -171,10 +183,90 @@ function AircraftMarker({
   );
 }
 
-export default function SkyMap({ location, aircraft, loading }: Props): React.JSX.Element {
+function beamSizeFromLatitudeDelta(latitudeDelta: number): {
+  lengthM: number;
+  baseHalfWidthM: number;
+} {
+  const visibleM = Math.max(latitudeDelta, 0.0001) * METERS_PER_DEG_LAT;
+  const lengthM = Math.min(
+    BEAM_LENGTH_MAX_M,
+    Math.max(BEAM_LENGTH_MIN_M, visibleM * BEAM_LENGTH_FRACTION),
+  );
+  return {
+    lengthM,
+    baseHalfWidthM: lengthM * BEAM_BASE_RATIO,
+  };
+}
+
+function buildHeadingBeam(
+  location: Coordinates,
+  heading: number,
+  lengthM: number,
+  baseHalfWidthM: number,
+): Coordinates[] {
+  // 手元が広く、尖端が進行方向の外側を向く三角形
+  const tip = moveByHeading(
+    location.latitude,
+    location.longitude,
+    heading,
+    lengthM,
+  );
+  const left = moveByHeading(
+    location.latitude,
+    location.longitude,
+    heading - 90,
+    baseHalfWidthM,
+  );
+  const right = moveByHeading(
+    location.latitude,
+    location.longitude,
+    heading + 90,
+    baseHalfWidthM,
+  );
+  return [left, tip, right];
+}
+
+function UserLocationMarker({ location }: { location: Coordinates }): React.JSX.Element {
+  const [tracksViewChanges, setTracksViewChanges] = useState(true);
+  const coordinate = useMemo(
+    () => ({
+      latitude: location.latitude,
+      longitude: location.longitude,
+    }),
+    [location.latitude, location.longitude],
+  );
+
+  useEffect(() => {
+    const timer = setTimeout(() => setTracksViewChanges(false), 500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <Marker
+      coordinate={coordinate}
+      anchor={{ x: 0.5, y: 0.5 }}
+      tracksViewChanges={tracksViewChanges}
+      zIndex={1000}
+    >
+      <View style={styles.userMarker} pointerEvents="none">
+        <View style={styles.userDotOuter}>
+          <View style={styles.userDotInner} />
+        </View>
+      </View>
+    </Marker>
+  );
+}
+
+export default function SkyMap({
+  location,
+  heading = null,
+  aircraft,
+  loading,
+}: Props): React.JSX.Element {
   const mapRef = useRef<MapView>(null);
   const hasFittedRef = useRef(false);
   const [selectedIcao24, setSelectedIcao24] = useState<string | null>(null);
+  const [latitudeDelta, setLatitudeDelta] = useState(DEFAULT_DELTA);
 
   const aircraftKey = aircraft
     .map((ac) => ac.icao24)
@@ -185,6 +277,12 @@ export default function SkyMap({ location, aircraft, loading }: Props): React.JS
     selectedIcao24 != null
       ? (aircraft.find((ac) => ac.icao24 === selectedIcao24) ?? null)
       : null;
+
+  const headingBeam = useMemo(() => {
+    if (!location || heading == null) return null;
+    const { lengthM, baseHalfWidthM } = beamSizeFromLatitudeDelta(latitudeDelta);
+    return buildHeadingBeam(location, heading, lengthM, baseHalfWidthM);
+  }, [location, heading, latitudeDelta]);
 
   useEffect(() => {
     if (selectedIcao24 && !aircraft.some((ac) => ac.icao24 === selectedIcao24)) {
@@ -251,13 +349,26 @@ export default function SkyMap({ location, aircraft, loading }: Props): React.JS
         style={styles.map}
         provider={PROVIDER_DEFAULT}
         initialRegion={initialRegion}
-        showsUserLocation
+        showsUserLocation={false}
         showsMyLocationButton={Platform.OS === 'android'}
         showsCompass={false}
         userInterfaceStyle="dark"
         mapType="standard"
         onPress={() => setSelectedIcao24(null)}
+        onRegionChangeComplete={(region) => {
+          setLatitudeDelta(region.latitudeDelta);
+        }}
       >
+        {headingBeam ? (
+          <Polygon
+            coordinates={headingBeam}
+            fillColor="rgba(66, 133, 244, 0.28)"
+            strokeColor="rgba(0, 212, 255, 0.55)"
+            strokeWidth={1}
+            zIndex={1}
+          />
+        ) : null}
+        <UserLocationMarker location={location} />
         {aircraft.map((ac, index) => (
           <AircraftMarker
             key={ac.icao24}
@@ -325,6 +436,28 @@ const styles = StyleSheet.create({
   markerWrap: {
     alignItems: 'center',
     gap: 2,
+  },
+  userMarker: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  userDotOuter: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: 'rgba(66, 133, 244, 0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.9)',
+  },
+  userDotInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#4285F4',
   },
   planeRotate: {
     alignItems: 'center',

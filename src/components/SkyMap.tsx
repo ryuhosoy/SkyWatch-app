@@ -11,7 +11,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import type { Aircraft, Coordinates } from '../types';
 import { headingDirection, t } from '../i18n';
 import { formatAirportDisplay } from '../utils/airports';
-import { greatCirclePoints, moveByHeading } from '../utils/geo';
+import { bearingDeg, greatCirclePoints, moveByHeading } from '../utils/geo';
 
 /** Material "flight" のデフォルト向き（北東）を真北 0° に合わせる */
 const PLANE_ICON_HEADING_OFFSET = -45;
@@ -35,7 +35,7 @@ const COLORS = {
   text: '#B8D4E8',
 } as const;
 
-const MAP_HEIGHT = 360;
+const MAP_HEIGHT = 400;
 const DEFAULT_DELTA = 0.45;
 
 interface Props {
@@ -232,6 +232,37 @@ function buildHeadingBeam(
   return [left, tip, right];
 }
 
+/** 折れ線上の指定割合の位置と、そこでの進行方位 */
+function samplePathDirection(
+  points: Coordinates[],
+  fraction: number,
+): { latitude: number; longitude: number; bearing: number } | null {
+  if (points.length < 2) return null;
+  const t = Math.min(1, Math.max(0, fraction)) * (points.length - 1);
+  const i = Math.min(points.length - 2, Math.floor(t));
+  const f = t - i;
+  const a = points[i];
+  const b = points[i + 1];
+  return {
+    latitude: a.latitude + (b.latitude - a.latitude) * f,
+    longitude: a.longitude + (b.longitude - a.longitude) * f,
+    bearing: bearingDeg(a.latitude, a.longitude, b.latitude, b.longitude),
+  };
+}
+
+/** 進行方向を示す小さな矢印（地理座標ポリゴン） */
+function buildDirectionArrow(
+  latitude: number,
+  longitude: number,
+  bearing: number,
+  sizeM: number,
+): Coordinates[] {
+  const tip = moveByHeading(latitude, longitude, bearing, sizeM * 0.55);
+  const left = moveByHeading(latitude, longitude, bearing - 150, sizeM * 0.5);
+  const right = moveByHeading(latitude, longitude, bearing + 150, sizeM * 0.5);
+  return [tip, left, right];
+}
+
 function UserLocationMarker({ location }: { location: Coordinates }): React.JSX.Element {
   const [tracksViewChanges, setTracksViewChanges] = useState(true);
   const coordinate = useMemo(
@@ -329,6 +360,38 @@ export default function SkyMap({
     selectedAircraft?.latitude,
     selectedAircraft?.longitude,
   ]);
+
+  const selectedRouteArrows = useMemo(() => {
+    if (!selectedRouteLines) return [];
+
+    const visibleM = Math.max(latitudeDelta, 0.0001) * METERS_PER_DEG_LAT;
+    const arrowSizeM = Math.min(
+      12_000,
+      Math.max(400, visibleM * 0.045),
+    );
+
+    const samples: { path: Coordinates[]; fraction: number }[] = [
+      { path: selectedRouteLines.flown, fraction: 0.55 },
+      { path: selectedRouteLines.remaining, fraction: 0.35 },
+      { path: selectedRouteLines.remaining, fraction: 0.72 },
+    ];
+
+    const arrows: Coordinates[][] = [];
+    for (const sample of samples) {
+      if (sample.path.length < 2) continue;
+      const point = samplePathDirection(sample.path, sample.fraction);
+      if (!point || !Number.isFinite(point.bearing)) continue;
+      arrows.push(
+        buildDirectionArrow(
+          point.latitude,
+          point.longitude,
+          point.bearing,
+          arrowSizeM,
+        ),
+      );
+    }
+    return arrows;
+  }, [selectedRouteLines, latitudeDelta]);
 
   const selectedRouteEndpoints = useMemo(() => {
     if (
@@ -458,6 +521,16 @@ export default function SkyMap({
             />
           </>
         ) : null}
+        {selectedRouteArrows.map((coords, index) => (
+          <Polygon
+            key={`route-arrow-${index}`}
+            coordinates={coords}
+            fillColor="rgba(0, 212, 255, 0.85)"
+            strokeColor={COLORS.cyan}
+            strokeWidth={1}
+            zIndex={4}
+          />
+        ))}
         {selectedRouteEndpoints ? (
           <>
             <Marker
@@ -467,7 +540,7 @@ export default function SkyMap({
               zIndex={3}
             >
               <View style={styles.airportDot}>
-                <View style={[styles.airportDotInner, { backgroundColor: COLORS.orange }]} />
+                <View style={[styles.airportDotInner, { backgroundColor: COLORS.muted }]} />
               </View>
             </Marker>
             <Marker
@@ -476,8 +549,8 @@ export default function SkyMap({
               tracksViewChanges={false}
               zIndex={3}
             >
-              <View style={styles.airportDot}>
-                <View style={[styles.airportDotInner, { backgroundColor: COLORS.cyan }]} />
+              <View style={styles.airportDotArrival}>
+                <MaterialIcons name="flag" size={10} color={COLORS.cyan} />
               </View>
             </Marker>
           </>
@@ -587,6 +660,16 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
+  },
+  airportDotArrival: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: 'rgba(6, 11, 24, 0.85)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.cyan,
   },
   planeRotate: {
     alignItems: 'center',

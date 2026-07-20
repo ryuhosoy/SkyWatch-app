@@ -9,6 +9,8 @@ export interface AirportRouteInfo {
   municipality: string | null;
   name: string | null;
   countryIso: string | null;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 export interface FlightRoute {
@@ -22,6 +24,8 @@ interface AdsbdbAirport {
   municipality?: string;
   name?: string;
   country_iso_name?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 interface AdsbdbCallsignResponse {
@@ -76,6 +80,8 @@ function toAirportInfo(airport?: AdsbdbAirport): AirportRouteInfo | null {
     municipality: airport.municipality ?? null,
     name: airport.name ?? null,
     countryIso: airport.country_iso_name ?? null,
+    latitude: typeof airport.latitude === 'number' ? airport.latitude : null,
+    longitude: typeof airport.longitude === 'number' ? airport.longitude : null,
   };
 }
 
@@ -145,6 +151,10 @@ function applyRoute(ac: Aircraft, route: FlightRoute): Aircraft {
     arrivalAirportEnglishName: route.arrival?.name ?? null,
     departureAirportCountry: route.departure?.countryIso ?? null,
     arrivalAirportCountry: route.arrival?.countryIso ?? null,
+    departureLatitude: route.departure?.latitude ?? null,
+    departureLongitude: route.departure?.longitude ?? null,
+    arrivalLatitude: route.arrival?.latitude ?? null,
+    arrivalLongitude: route.arrival?.longitude ?? null,
   };
 }
 

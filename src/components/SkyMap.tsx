@@ -1,11 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Platform, Pressable } from 'react-native';
-import MapView, { Marker, Polygon, PROVIDER_DEFAULT, type Region } from 'react-native-maps';
+import MapView, {
+  Marker,
+  Polygon,
+  Polyline,
+  PROVIDER_DEFAULT,
+  type Region,
+} from 'react-native-maps';
 import { MaterialIcons } from '@expo/vector-icons';
 import type { Aircraft, Coordinates } from '../types';
 import { headingDirection, t } from '../i18n';
 import { formatAirportDisplay } from '../utils/airports';
-import { moveByHeading } from '../utils/geo';
+import { greatCirclePoints, moveByHeading } from '../utils/geo';
 
 /** Material "flight" のデフォルト向き（北東）を真北 0° に合わせる */
 const PLANE_ICON_HEADING_OFFSET = -45;
@@ -29,7 +35,7 @@ const COLORS = {
   text: '#B8D4E8',
 } as const;
 
-const MAP_HEIGHT = 280;
+const MAP_HEIGHT = 360;
 const DEFAULT_DELTA = 0.45;
 
 interface Props {
@@ -284,6 +290,72 @@ export default function SkyMap({
     return buildHeadingBeam(location, heading, lengthM, baseHalfWidthM);
   }, [location, heading, latitudeDelta]);
 
+  const selectedRouteLines = useMemo(() => {
+    if (
+      selectedAircraft?.departureLatitude == null ||
+      selectedAircraft.departureLongitude == null ||
+      selectedAircraft.arrivalLatitude == null ||
+      selectedAircraft.arrivalLongitude == null
+    ) {
+      return null;
+    }
+
+    const planeLat = selectedAircraft.latitude;
+    const planeLon = selectedAircraft.longitude;
+
+    return {
+      // 出発地 → 現在位置（飛行済み）
+      flown: greatCirclePoints(
+        selectedAircraft.departureLatitude,
+        selectedAircraft.departureLongitude,
+        planeLat,
+        planeLon,
+        32,
+      ),
+      // 現在位置 → 目的地（残り）
+      remaining: greatCirclePoints(
+        planeLat,
+        planeLon,
+        selectedAircraft.arrivalLatitude,
+        selectedAircraft.arrivalLongitude,
+        32,
+      ),
+    };
+  }, [
+    selectedAircraft?.departureLatitude,
+    selectedAircraft?.departureLongitude,
+    selectedAircraft?.arrivalLatitude,
+    selectedAircraft?.arrivalLongitude,
+    selectedAircraft?.latitude,
+    selectedAircraft?.longitude,
+  ]);
+
+  const selectedRouteEndpoints = useMemo(() => {
+    if (
+      selectedAircraft?.departureLatitude == null ||
+      selectedAircraft.departureLongitude == null ||
+      selectedAircraft.arrivalLatitude == null ||
+      selectedAircraft.arrivalLongitude == null
+    ) {
+      return null;
+    }
+    return {
+      departure: {
+        latitude: selectedAircraft.departureLatitude,
+        longitude: selectedAircraft.departureLongitude,
+      },
+      arrival: {
+        latitude: selectedAircraft.arrivalLatitude,
+        longitude: selectedAircraft.arrivalLongitude,
+      },
+    };
+  }, [
+    selectedAircraft?.departureLatitude,
+    selectedAircraft?.departureLongitude,
+    selectedAircraft?.arrivalLatitude,
+    selectedAircraft?.arrivalLongitude,
+  ]);
+
   useEffect(() => {
     if (selectedIcao24 && !aircraft.some((ac) => ac.icao24 === selectedIcao24)) {
       setSelectedIcao24(null);
@@ -367,6 +439,48 @@ export default function SkyMap({
             strokeWidth={1}
             zIndex={1}
           />
+        ) : null}
+        {selectedRouteLines ? (
+          <>
+            <Polyline
+              coordinates={selectedRouteLines.flown}
+              strokeColor={COLORS.cyan}
+              strokeWidth={2}
+              lineDashPattern={[10, 8]}
+              zIndex={2}
+            />
+            <Polyline
+              coordinates={selectedRouteLines.remaining}
+              strokeColor={COLORS.cyan}
+              strokeWidth={2}
+              lineDashPattern={[10, 8]}
+              zIndex={2}
+            />
+          </>
+        ) : null}
+        {selectedRouteEndpoints ? (
+          <>
+            <Marker
+              coordinate={selectedRouteEndpoints.departure}
+              anchor={{ x: 0.5, y: 0.5 }}
+              tracksViewChanges={false}
+              zIndex={3}
+            >
+              <View style={styles.airportDot}>
+                <View style={[styles.airportDotInner, { backgroundColor: COLORS.orange }]} />
+              </View>
+            </Marker>
+            <Marker
+              coordinate={selectedRouteEndpoints.arrival}
+              anchor={{ x: 0.5, y: 0.5 }}
+              tracksViewChanges={false}
+              zIndex={3}
+            >
+              <View style={styles.airportDot}>
+                <View style={[styles.airportDotInner, { backgroundColor: COLORS.cyan }]} />
+              </View>
+            </Marker>
+          </>
         ) : null}
         <UserLocationMarker location={location} />
         {aircraft.map((ac, index) => (
@@ -458,6 +572,21 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     backgroundColor: '#4285F4',
+  },
+  airportDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: 'rgba(6, 11, 24, 0.75)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.white,
+  },
+  airportDotInner: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
   },
   planeRotate: {
     alignItems: 'center',

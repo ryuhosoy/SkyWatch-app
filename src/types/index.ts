@@ -24,6 +24,10 @@ export interface Aircraft {
   arrivalAirportEnglishName: string | null;
   departureAirportCountry: string | null;
   arrivalAirportCountry: string | null;
+  departureLatitude: number | null;
+  departureLongitude: number | null;
+  arrivalLatitude: number | null;
+  arrivalLongitude: number | null;
   aircraftType: string | null;
   aircraftIcaoType: string | null;
   aircraftManufacturer: string | null;

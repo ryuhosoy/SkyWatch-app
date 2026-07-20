@@ -63,3 +63,51 @@ export function bearingDeg(
     Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
   return (toDeg(Math.atan2(y, x)) + 360) % 360;
 }
+
+/** 大圏航路上の点列（地図のルート線用） */
+export function greatCirclePoints(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+  segments = 48,
+): { latitude: number; longitude: number }[] {
+  const φ1 = toRad(lat1);
+  const λ1 = toRad(lon1);
+  const φ2 = toRad(lat2);
+  const λ2 = toRad(lon2);
+
+  const Δ =
+    2 *
+    Math.asin(
+      Math.sqrt(
+        Math.sin((φ2 - φ1) / 2) ** 2 +
+          Math.cos(φ1) * Math.cos(φ2) * Math.sin((λ2 - λ1) / 2) ** 2,
+      ),
+    );
+
+  if (!Number.isFinite(Δ) || Δ < 1e-12) {
+    return [
+      { latitude: lat1, longitude: lon1 },
+      { latitude: lat2, longitude: lon2 },
+    ];
+  }
+
+  const points: { latitude: number; longitude: number }[] = [];
+  const sinΔ = Math.sin(Δ);
+
+  for (let i = 0; i <= segments; i++) {
+    const f = i / segments;
+    const A = Math.sin((1 - f) * Δ) / sinΔ;
+    const B = Math.sin(f * Δ) / sinΔ;
+    const x = A * Math.cos(φ1) * Math.cos(λ1) + B * Math.cos(φ2) * Math.cos(λ2);
+    const y = A * Math.cos(φ1) * Math.sin(λ1) + B * Math.cos(φ2) * Math.sin(λ2);
+    const z = A * Math.sin(φ1) + B * Math.sin(φ2);
+    points.push({
+      latitude: toDeg(Math.atan2(z, Math.sqrt(x * x + y * y))),
+      longitude: toDeg(Math.atan2(y, x)),
+    });
+  }
+
+  return points;
+}

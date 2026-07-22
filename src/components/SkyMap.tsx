@@ -35,7 +35,7 @@ const COLORS = {
   text: '#B8D4E8',
 } as const;
 
-const MAP_HEIGHT = 400;
+const MAP_HEIGHT = Platform.OS === 'ios' && Platform.isPad ? 560 : 400;
 const DEFAULT_DELTA = 0.45;
 
 interface Props {
@@ -273,10 +273,12 @@ function UserLocationMarker({ location }: { location: Coordinates }): React.JSX.
     [location.latitude, location.longitude],
   );
 
+  // 座標が変わるたびに一度だけ再描画を許可（Android でマーカーが固まる対策）
   useEffect(() => {
-    const timer = setTimeout(() => setTracksViewChanges(false), 500);
+    setTracksViewChanges(true);
+    const timer = setTimeout(() => setTracksViewChanges(false), 300);
     return () => clearTimeout(timer);
-  }, []);
+  }, [location.latitude, location.longitude]);
 
   return (
     <Marker
@@ -455,6 +457,7 @@ export default function SkyMap({
         },
         600,
       );
+      hasFittedRef.current = true;
       return;
     }
 
@@ -463,9 +466,10 @@ export default function SkyMap({
       animated: hasFittedRef.current,
     });
     hasFittedRef.current = true;
-    // aircraftKey が変わったときだけ表示範囲を調整（スムーズ移動のたびにズームしない）
+    // 初回の位置取得時 + 航空機セット変更時だけ表示範囲を調整
+    // （位置更新のたびに fit するとマーカーが動いて見えない）
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location, aircraftKey]);
+  }, [aircraftKey, location != null]);
 
   if (!location) {
     return (

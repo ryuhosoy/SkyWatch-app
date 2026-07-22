@@ -5,8 +5,9 @@ import { fetchAircraftOverhead } from '../utils/opensky';
 import type { Aircraft, Coordinates, UseAircraftOverheadReturn } from '../types';
 
 const REFRESH_INTERVAL = 15_000;
-const LOCATION_DISTANCE_INTERVAL_M = 15;
-const LOCATION_TIME_INTERVAL_MS = 5_000;
+/** 移動中もマーカーが追従するよう、短距離・短周期で更新する */
+const LOCATION_DISTANCE_INTERVAL_M = 3;
+const LOCATION_TIME_INTERVAL_MS = 1_000;
 
 export function useAircraftOverhead(): UseAircraftOverheadReturn {
   const [location, setLocation] = useState<Coordinates | null>(null);
@@ -59,7 +60,7 @@ export function useAircraftOverhead(): UseAircraftOverheadReturn {
       setPermissionGranted(true);
 
       const loc = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
+        accuracy: Location.Accuracy.High,
       });
       const coords: Coordinates = {
         latitude: loc.coords.latitude,
@@ -101,7 +102,7 @@ export function useAircraftOverhead(): UseAircraftOverheadReturn {
 
     void Location.watchPositionAsync(
       {
-        accuracy: Location.Accuracy.Balanced,
+        accuracy: Location.Accuracy.High,
         distanceInterval: LOCATION_DISTANCE_INTERVAL_M,
         timeInterval: LOCATION_TIME_INTERVAL_MS,
       },

@@ -1,0 +1,11 @@
+{
+  "ios": {
+    "CFBundleDisplayName": "Flight Overhead",
+    "NSLocationWhenInUseUsageDescription": "Your location is used to find aircraft flying overhead near you.",
+    "NSLocationAlwaysUsageDescription": "Your location is used to track nearby aircraft, including while the app is in the background.",
+    "NSLocationAlwaysAndWhenInUseUsageDescription": "Your location is used to find and track aircraft flying overhead near you."
+  },
+  "android": {
+    "app_name": "Flight Overhead"
+  }
+}

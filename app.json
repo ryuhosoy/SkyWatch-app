@@ -6,11 +6,17 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
+    "locales": {
+      "en": "./locales/en.json",
+      "ja": "./locales/ja.json"
+    },
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "頭上を飛ぶ航空機を検索するために現在地が必要です。",
-        "NSLocationAlwaysUsageDescription": "バックグラウンドでも航空機を追跡するために現在地が必要です。",
+        "CFBundleAllowMixedLocalizations": true,
+        "NSLocationWhenInUseUsageDescription": "Your location is used to find aircraft flying overhead near you.",
+        "NSLocationAlwaysUsageDescription": "Your location is used to track nearby aircraft, including while the app is in the background.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Your location is used to find and track aircraft flying overhead near you.",
         "ITSAppUsesNonExemptEncryption": false
       },
       "bundleIdentifier": "com.ryuhosoy.FlightOverhead"
@@ -22,7 +28,9 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "頭上を飛ぶ航空機を検索するために現在地が必要です。"
+          "locationWhenInUsePermission": "Your location is used to find aircraft flying overhead near you.",
+          "locationAlwaysAndWhenInUsePermission": "Your location is used to find and track aircraft flying overhead near you.",
+          "locationAlwaysPermission": "Your location is used to track nearby aircraft, including while the app is in the background."
         }
       ],
       [

@@ -1,5 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Platform, Pressable } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Platform,
+  Pressable,
+  useWindowDimensions,
+} from 'react-native';
 import MapView, {
   Marker,
   Polygon,
@@ -35,7 +42,9 @@ const COLORS = {
   text: '#B8D4E8',
 } as const;
 
-const MAP_HEIGHT = Platform.OS === 'ios' && Platform.isPad ? 560 : 400;
+/** ヘッダー + 地図上余白を除いて、画面縦方向いっぱいにする */
+const HEADER_OFFSET = Platform.OS === 'ios' ? 112 : 96;
+const MAP_HEIGHT_MIN = 360;
 const DEFAULT_DELTA = 0.45;
 
 interface Props {
@@ -302,6 +311,8 @@ export default function SkyMap({
   aircraft,
   loading,
 }: Props): React.JSX.Element {
+  const { height: windowHeight } = useWindowDimensions();
+  const mapHeight = Math.max(MAP_HEIGHT_MIN, windowHeight - HEADER_OFFSET);
   const mapRef = useRef<MapView>(null);
   const hasFittedRef = useRef(false);
   const [selectedIcao24, setSelectedIcao24] = useState<string | null>(null);
@@ -473,7 +484,7 @@ export default function SkyMap({
 
   if (!location) {
     return (
-      <View style={styles.placeholder}>
+      <View style={[styles.placeholder, { height: mapHeight }]}>
         <Text style={styles.placeholderText}>
           {loading ? t('mapLoading') : t('mapNoLocation')}
         </Text>
@@ -482,7 +493,7 @@ export default function SkyMap({
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { height: mapHeight }]}>
       <MapView
         ref={mapRef}
         style={styles.map}
@@ -598,7 +609,6 @@ export default function SkyMap({
 
 const styles = StyleSheet.create({
   container: {
-    height: MAP_HEIGHT,
     marginHorizontal: 16,
     marginTop: 12,
     borderRadius: 12,
@@ -610,7 +620,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   placeholder: {
-    height: MAP_HEIGHT,
     marginHorizontal: 16,
     marginTop: 12,
     borderRadius: 12,

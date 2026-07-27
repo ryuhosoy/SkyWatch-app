@@ -42,10 +42,12 @@ const COLORS = {
   text: '#B8D4E8',
 } as const;
 
-/** ヘッダー + 地図上余白を除いて、画面縦方向いっぱいにする */
+/** ヘッダー分を除いて、画面縦方向いっぱいにする */
 const HEADER_OFFSET = Platform.OS === 'ios' ? 112 : 96;
 const MAP_HEIGHT_MIN = 360;
 const DEFAULT_DELTA = 0.45;
+/** 地図下部の nearest オーバーレイ分の余白 */
+const BOTTOM_OVERLAY_PADDING = 96;
 
 interface Props {
   location: Coordinates | null;
@@ -473,7 +475,7 @@ export default function SkyMap({
     }
 
     mapRef.current.fitToCoordinates(points, {
-      edgePadding: { top: 48, right: 48, bottom: 48, left: 48 },
+      edgePadding: { top: 48, right: 48, bottom: BOTTOM_OVERLAY_PADDING, left: 48 },
       animated: hasFittedRef.current,
     });
     hasFittedRef.current = true;
@@ -609,21 +611,23 @@ export default function SkyMap({
 
 const styles = StyleSheet.create({
   container: {
-    marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: 12,
+    marginHorizontal: 0,
+    marginTop: 0,
+    borderRadius: 0,
     overflow: 'hidden',
-    borderWidth: 1,
+    borderWidth: 0,
+    borderBottomWidth: 1,
     borderColor: COLORS.panelBorder,
   },
   map: {
     flex: 1,
   },
   placeholder: {
-    marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: 12,
-    borderWidth: 1,
+    marginHorizontal: 0,
+    marginTop: 0,
+    borderRadius: 0,
+    borderWidth: 0,
+    borderBottomWidth: 1,
     borderColor: COLORS.panelBorder,
     backgroundColor: '#0A1628',
     alignItems: 'center',
@@ -710,7 +714,7 @@ const styles = StyleSheet.create({
   },
   legend: {
     position: 'absolute',
-    bottom: 8,
+    top: 8,
     left: 8,
     flexDirection: 'row',
     gap: 10,
@@ -739,7 +743,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 8,
     right: 8,
-    bottom: 8,
+    bottom: BOTTOM_OVERLAY_PADDING,
     backgroundColor: 'rgba(6, 11, 24, 0.95)',
     borderRadius: 10,
     borderWidth: 1,

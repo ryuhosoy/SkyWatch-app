@@ -15,7 +15,6 @@ import { useReapproachNotifications } from '../hooks/useReapproachNotifications'
 import { useSmoothedAircraft } from '../hooks/useSmoothedAircraft';
 import { formatLocaleTime, t } from '../i18n';
 import { formatAirportDisplay } from '../utils/airports';
-import RadarAnimation from '../components/RadarAnimation';
 import SkyMap from '../components/SkyMap';
 import AircraftCard from '../components/AircraftCard';
 
@@ -86,7 +85,7 @@ export default function MainScreen(): React.JSX.Element {
       <View style={styles.header}>
         <View>
           <Text style={styles.logoText}>
-            SKY<Text style={styles.logoAccent}>WATCH</Text>
+            Flight <Text style={styles.logoAccent}>Overhead</Text>
           </Text>
           <Text style={styles.tagline}>{t('tagline')}</Text>
         </View>
@@ -117,89 +116,74 @@ export default function MainScreen(): React.JSX.Element {
         }
         showsVerticalScrollIndicator={false}
       >
-        <SkyMap
-          location={location}
-          heading={heading}
-          aircraft={mapAircraft}
-          loading={loading}
-        />
+        <View style={styles.mapSection}>
+          <SkyMap
+            location={location}
+            heading={heading}
+            aircraft={mapAircraft}
+            loading={loading}
+          />
 
-        <View style={styles.heroSection}>
-          <RadarAnimation size={120} isActive={!loading} />
-
-          <View style={styles.heroInfo}>
+          <View style={styles.nearestBar} pointerEvents="box-none">
             {loading ? (
-              <View style={styles.loadingBox}>
-                <Animated.Text style={[styles.loadingText, { opacity: blinkAnim }]}>
-                  {t('scanning')}
-                </Animated.Text>
-                <Text style={styles.loadingSubText}>{t('fetchingLocation')}</Text>
-              </View>
+              <Animated.Text style={[styles.nearestBarStatus, { opacity: blinkAnim }]}>
+                {t('scanning')}
+              </Animated.Text>
             ) : error ? (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorIcon}>⚠</Text>
-                <Text style={styles.errorText}>{error}</Text>
+              <View style={styles.nearestBarRow}>
+                <Text style={styles.nearestBarError} numberOfLines={1}>
+                  {error}
+                </Text>
                 <TouchableOpacity style={styles.retryBtn} onPress={manualRefresh}>
                   <Text style={styles.retryBtnText}>{t('retry')}</Text>
                 </TouchableOpacity>
               </View>
             ) : closestAircraft ? (
-              <View style={styles.nearestBox}>
-                <Text style={styles.nearestLabel}>{t('nearestAircraft')}</Text>
-                <Text style={styles.nearestCallsign}>{closestAircraft.flightNumber}</Text>
-                <Text style={styles.nearestAltitude}>
-                  {t('altitudeAbove', {
-                    alt: closestAircraft.altitudeMeters.toLocaleString(),
-                  })}
-                </Text>
-                <Text style={styles.nearestDistance}>
-                  {t('horizontalDistance', { dist: closestAircraft.distanceKm })}
-                </Text>
-                {closestRoute ? (
-                  <Text style={styles.nearestRoute}>{closestRoute}</Text>
-                ) : null}
-                <View style={styles.nearestAirlinePill}>
-                  <Text style={styles.nearestAirlineName} numberOfLines={1}>
-                    {closestAircraft.airlineName}
+              <>
+                <View style={styles.nearestBarRow}>
+                  <Text style={styles.nearestLabel}>{t('nearestAircraft')}</Text>
+                  <Text style={styles.nearestMeta} numberOfLines={1}>
+                    {lastUpdated ? formatLocaleTime(lastUpdated) : '--:--:--'}
+                    {location
+                      ? `  ·  ${formatCoord(location.latitude, 'N', 'S')} ${formatCoord(location.longitude, 'E', 'W')}`
+                      : ''}
                   </Text>
                 </View>
-              </View>
+                <View style={styles.nearestBarRow}>
+                  <Text style={styles.nearestCallsign}>{closestAircraft.flightNumber}</Text>
+                  <Text style={styles.nearestStats} numberOfLines={1}>
+                    {closestAircraft.altitudeMeters.toLocaleString()} m
+                    {'  ·  '}
+                    {closestAircraft.distanceKm} km
+                  </Text>
+                </View>
+                <View style={styles.nearestBarRow}>
+                  <Text style={styles.nearestRoute} numberOfLines={1}>
+                    {closestRoute ?? closestAircraft.airlineName}
+                  </Text>
+                  <TouchableOpacity onPress={manualRefresh} style={styles.refreshBtn}>
+                    <Text style={styles.refreshBtnText}>{t('refresh')}</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
             ) : (
-              <View style={styles.emptyBox}>
-                <Text style={styles.emptyIcon}>🌌</Text>
-                <Text style={styles.emptyText}>{t('noAircraftOverhead')}</Text>
-                <Text style={styles.emptySubText}>{t('radiusAbout90km')}</Text>
+              <View style={styles.nearestBarRow}>
+                <Text style={styles.nearestBarStatus}>{t('noAircraftOverhead')}</Text>
+                <TouchableOpacity onPress={manualRefresh} style={styles.refreshBtn}>
+                  <Text style={styles.refreshBtnText}>{t('refresh')}</Text>
+                </TouchableOpacity>
               </View>
             )}
           </View>
         </View>
 
-        {location && (
-          <View style={styles.locationBar}>
-            <Text style={styles.locationLabel}>📍</Text>
-            <Text style={styles.locationText}>
-              {formatCoord(location.latitude, 'N', 'S')}
-              {'  '}
-              {formatCoord(location.longitude, 'E', 'W')}
-            </Text>
-            <Text style={styles.updateTime}>
-              {lastUpdated ? formatLocaleTime(lastUpdated) : '--:--:--'}
-            </Text>
-          </View>
-        )}
-
-        {!loading && !error && (
+        {!loading && !error && aircraft.length > 0 ? (
           <View style={styles.countBar}>
             <Text style={styles.countText}>
-              {aircraft.length > 0
-                ? t('trackingCount', { count: aircraft.length })
-                : t('trackingNone')}
+              {t('trackingCount', { count: aircraft.length })}
             </Text>
-            <TouchableOpacity onPress={manualRefresh} style={styles.refreshBtn}>
-              <Text style={styles.refreshBtnText}>{t('refresh')}</Text>
-            </TouchableOpacity>
           </View>
-        )}
+        ) : null}
 
         {aircraft.length > 0 && (
           <View style={styles.listSection}>
@@ -233,10 +217,10 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.panelBorder,
   },
   logoText: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '800',
     color: COLORS.white,
-    letterSpacing: 4,
+    letterSpacing: 1,
     fontFamily: 'monospace',
   },
   logoAccent: {
@@ -270,143 +254,84 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 40,
   },
-  heroSection: {
+  mapSection: {
+    position: 'relative',
+  },
+  nearestBar: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(10, 22, 40, 0.92)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.panelBorder,
+    gap: 2,
+  },
+  nearestBarRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 20,
-    gap: 20,
-  },
-  heroInfo: {
-    flex: 1,
-  },
-  loadingBox: {
-    gap: 6,
-  },
-  loadingText: {
-    fontSize: 18,
-    color: COLORS.cyan,
-    fontFamily: 'monospace',
-    letterSpacing: 2,
-  },
-  loadingSubText: {
-    fontSize: 12,
-    color: COLORS.muted,
-  },
-  errorBox: {
+    justifyContent: 'space-between',
     gap: 8,
-    alignItems: 'flex-start',
   },
-  errorIcon: {
-    fontSize: 24,
-  },
-  errorText: {
-    fontSize: 13,
-    color: COLORS.orange,
-    lineHeight: 18,
-  },
-  retryBtn: {
-    borderWidth: 1,
-    borderColor: COLORS.cyan,
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    marginTop: 4,
-  },
-  retryBtnText: {
-    color: COLORS.cyan,
-    fontSize: 13,
-    fontFamily: 'monospace',
-  },
-  nearestBox: {
-    gap: 3,
-  },
-  nearestLabel: {
-    fontSize: 10,
-    color: COLORS.muted,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-    marginBottom: 2,
-  },
-  nearestCallsign: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: COLORS.white,
-    fontFamily: 'monospace',
-    letterSpacing: 3,
-  },
-  nearestAltitude: {
-    fontSize: 16,
-    color: COLORS.cyan,
-    fontFamily: 'monospace',
-    fontWeight: '600',
-  },
-  nearestDistance: {
-    fontSize: 12,
-    color: COLORS.muted,
-    fontFamily: 'monospace',
-  },
-  nearestRoute: {
+  nearestBarStatus: {
+    flex: 1,
     fontSize: 13,
     color: COLORS.cyan,
     fontFamily: 'monospace',
     letterSpacing: 1,
   },
-  nearestAirlinePill: {
-    marginTop: 6,
-    alignSelf: 'flex-start',
-    backgroundColor: COLORS.cyanDim,
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 212, 255, 0.3)',
-  },
-  nearestAirlineName: {
-    fontSize: 12,
-    color: COLORS.cyan,
-  },
-  emptyBox: {
-    alignItems: 'center',
-    gap: 4,
-  },
-  emptyIcon: {
-    fontSize: 36,
-  },
-  emptyText: {
-    fontSize: 15,
-    color: COLORS.text,
-    fontWeight: '600',
-  },
-  emptySubText: {
-    fontSize: 12,
-    color: COLORS.muted,
-  },
-  locationBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    backgroundColor: COLORS.panel,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: COLORS.panelBorder,
-    gap: 8,
-  },
-  locationLabel: {
-    fontSize: 12,
-  },
-  locationText: {
+  nearestBarError: {
     flex: 1,
     fontSize: 12,
+    color: COLORS.orange,
+  },
+  nearestLabel: {
+    fontSize: 9,
+    color: COLORS.muted,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+  },
+  nearestMeta: {
+    flex: 1,
+    textAlign: 'right',
+    fontSize: 10,
+    color: COLORS.muted,
+    fontFamily: 'monospace',
+  },
+  nearestCallsign: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: COLORS.white,
+    fontFamily: 'monospace',
+    letterSpacing: 2,
+  },
+  nearestStats: {
+    flex: 1,
+    textAlign: 'right',
+    fontSize: 12,
+    color: COLORS.cyan,
+    fontFamily: 'monospace',
+    fontWeight: '600',
+  },
+  nearestRoute: {
+    flex: 1,
+    fontSize: 11,
     color: COLORS.text,
     fontFamily: 'monospace',
-    letterSpacing: 0.5,
   },
-  updateTime: {
+  retryBtn: {
+    borderWidth: 1,
+    borderColor: COLORS.cyan,
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  retryBtnText: {
+    color: COLORS.cyan,
     fontSize: 11,
-    color: COLORS.muted,
     fontFamily: 'monospace',
   },
   countBar: {
@@ -414,23 +339,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingTop: 12,
+    paddingBottom: 4,
   },
   countText: {
-    fontSize: 13,
+    fontSize: 12,
     color: COLORS.muted,
     letterSpacing: 0.5,
   },
   refreshBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
     backgroundColor: COLORS.cyanDim,
     borderWidth: 1,
     borderColor: 'rgba(0, 212, 255, 0.3)',
   },
   refreshBtnText: {
-    fontSize: 12,
+    fontSize: 11,
     color: COLORS.cyan,
     fontFamily: 'monospace',
   },

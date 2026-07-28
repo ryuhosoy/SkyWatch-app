@@ -1,0 +1,34 @@
+diff --git a/node_modules/react-native-maps/ios/AirGoogleMaps/AIRGoogleMap.m b/node_modules/react-native-maps/ios/AirGoogleMaps/AIRGoogleMap.m
+index a1ffe69..e4296d7 100644
+--- a/node_modules/react-native-maps/ios/AirGoogleMaps/AIRGoogleMap.m
++++ b/node_modules/react-native-maps/ios/AirGoogleMaps/AIRGoogleMap.m
+@@ -188,7 +188,11 @@ - (void)insertReactSubview:(id<RCTComponent>)subview atIndex:(NSInteger)atIndex
+       [self insertReactSubview:(UIView *)childSubviews[i] atIndex:atIndex];
+     }
+   }
+-  [_reactSubviews insertObject:(UIView *)subview atIndex:(NSUInteger) atIndex];
++  // Guard against Fabric mount races (nil / out-of-bounds index)
++  if (subview != nil) {
++    NSUInteger safeIndex = MIN((NSUInteger)atIndex, _reactSubviews.count);
++    [_reactSubviews insertObject:(UIView *)subview atIndex:safeIndex];
++  }
+ }
+ #pragma clang diagnostic pop
+ 
+diff --git a/node_modules/react-native-maps/ios/AirMaps/AIRMap.m b/node_modules/react-native-maps/ios/AirMaps/AIRMap.m
+index 07a4638..429c297 100644
+--- a/node_modules/react-native-maps/ios/AirMaps/AIRMap.m
++++ b/node_modules/react-native-maps/ios/AirMaps/AIRMap.m
+@@ -135,7 +135,11 @@ - (void)insertReactSubview:(id<RCTComponent>)subview atIndex:(NSInteger)atIndex
+             [self insertReactSubview:(UIView *)childSubviews[i] atIndex:atIndex];
+         }
+     }
+-    [_reactSubviews insertObject:(UIView *)subview atIndex:(NSUInteger) atIndex];
++    // Guard against Fabric mount races (nil / out-of-bounds index)
++    if (subview != nil) {
++        NSUInteger safeIndex = MIN((NSUInteger)atIndex, _reactSubviews.count);
++        [_reactSubviews insertObject:(UIView *)subview atIndex:safeIndex];
++    }
+ }
+ #pragma clang diagnostic pop
+ 

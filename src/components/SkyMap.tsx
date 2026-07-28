@@ -48,6 +48,8 @@ const MAP_HEIGHT_MIN = 360;
 const DEFAULT_DELTA = 0.45;
 /** 地図下部の nearest オーバーレイ分の余白 */
 const BOTTOM_OVERLAY_PADDING = 96;
+/** Fabric の insert クラッシュ緩和のため地図上マーカー数を制限 */
+const MAX_MAP_AIRCRAFT = 30;
 
 interface Props {
   location: Coordinates | null;
@@ -320,14 +322,18 @@ export default function SkyMap({
   const [selectedIcao24, setSelectedIcao24] = useState<string | null>(null);
   const [latitudeDelta, setLatitudeDelta] = useState(DEFAULT_DELTA);
 
-  const aircraftKey = aircraft
+  const mapAircraft = aircraft.slice(0, MAX_MAP_AIRCRAFT);
+
+  const aircraftKey = mapAircraft
     .map((ac) => ac.icao24)
     .sort()
     .join(',');
 
   const selectedAircraft =
     selectedIcao24 != null
-      ? (aircraft.find((ac) => ac.icao24 === selectedIcao24) ?? null)
+      ? (mapAircraft.find((ac) => ac.icao24 === selectedIcao24) ??
+          aircraft.find((ac) => ac.icao24 === selectedIcao24) ??
+          null)
       : null;
 
   const headingBeam = useMemo(() => {
@@ -454,7 +460,7 @@ export default function SkyMap({
 
     const points = [
       { latitude: location.latitude, longitude: location.longitude },
-      ...aircraft.map((ac) => ({
+      ...mapAircraft.map((ac) => ({
         latitude: ac.latitude,
         longitude: ac.longitude,
       })),
@@ -513,6 +519,7 @@ export default function SkyMap({
       >
         {headingBeam ? (
           <Polygon
+            key="heading-beam"
             coordinates={headingBeam}
             fillColor="rgba(66, 133, 244, 0.28)"
             strokeColor="rgba(0, 212, 255, 0.55)"
@@ -521,22 +528,24 @@ export default function SkyMap({
           />
         ) : null}
         {selectedRouteLines ? (
-          <>
-            <Polyline
-              coordinates={selectedRouteLines.flown}
-              strokeColor={COLORS.cyan}
-              strokeWidth={2}
-              lineDashPattern={[10, 8]}
-              zIndex={2}
-            />
-            <Polyline
-              coordinates={selectedRouteLines.remaining}
-              strokeColor={COLORS.cyan}
-              strokeWidth={2}
-              lineDashPattern={[10, 8]}
-              zIndex={2}
-            />
-          </>
+          <Polyline
+            key="route-flown"
+            coordinates={selectedRouteLines.flown}
+            strokeColor={COLORS.cyan}
+            strokeWidth={2}
+            lineDashPattern={[10, 8]}
+            zIndex={2}
+          />
+        ) : null}
+        {selectedRouteLines ? (
+          <Polyline
+            key="route-remaining"
+            coordinates={selectedRouteLines.remaining}
+            strokeColor={COLORS.cyan}
+            strokeWidth={2}
+            lineDashPattern={[10, 8]}
+            zIndex={2}
+          />
         ) : null}
         {selectedRouteArrows.map((coords, index) => (
           <Polygon
@@ -549,31 +558,33 @@ export default function SkyMap({
           />
         ))}
         {selectedRouteEndpoints ? (
-          <>
-            <Marker
-              coordinate={selectedRouteEndpoints.departure}
-              anchor={{ x: 0.5, y: 0.5 }}
-              tracksViewChanges={false}
-              zIndex={3}
-            >
-              <View style={styles.airportDot}>
-                <View style={[styles.airportDotInner, { backgroundColor: COLORS.muted }]} />
-              </View>
-            </Marker>
-            <Marker
-              coordinate={selectedRouteEndpoints.arrival}
-              anchor={{ x: 0.5, y: 0.5 }}
-              tracksViewChanges={false}
-              zIndex={3}
-            >
-              <View style={styles.airportDotArrival}>
-                <MaterialIcons name="flag" size={10} color={COLORS.cyan} />
-              </View>
-            </Marker>
-          </>
+          <Marker
+            key="route-departure"
+            coordinate={selectedRouteEndpoints.departure}
+            anchor={{ x: 0.5, y: 0.5 }}
+            tracksViewChanges={false}
+            zIndex={3}
+          >
+            <View style={styles.airportDot}>
+              <View style={[styles.airportDotInner, { backgroundColor: COLORS.muted }]} />
+            </View>
+          </Marker>
+        ) : null}
+        {selectedRouteEndpoints ? (
+          <Marker
+            key="route-arrival"
+            coordinate={selectedRouteEndpoints.arrival}
+            anchor={{ x: 0.5, y: 0.5 }}
+            tracksViewChanges={false}
+            zIndex={3}
+          >
+            <View style={styles.airportDotArrival}>
+              <MaterialIcons name="flag" size={10} color={COLORS.cyan} />
+            </View>
+          </Marker>
         ) : null}
         <UserLocationMarker location={location} />
-        {aircraft.map((ac, index) => (
+        {mapAircraft.map((ac, index) => (
           <AircraftMarker
             key={ac.icao24}
             aircraft={ac}

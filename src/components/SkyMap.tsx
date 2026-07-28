@@ -319,8 +319,10 @@ export default function SkyMap({
   const mapHeight = Math.max(MAP_HEIGHT_MIN, windowHeight - HEADER_OFFSET);
   const mapRef = useRef<MapView>(null);
   const hasFittedRef = useRef(false);
+  const regionRef = useRef<Region | null>(null);
   const [selectedIcao24, setSelectedIcao24] = useState<string | null>(null);
   const [latitudeDelta, setLatitudeDelta] = useState(DEFAULT_DELTA);
+  const [mapResetKey, setMapResetKey] = useState(0);
 
   const mapAircraft = aircraft.slice(0, MAX_MAP_AIRCRAFT);
 
@@ -440,20 +442,30 @@ export default function SkyMap({
     selectedAircraft?.arrivalLongitude,
   ]);
 
+  const initialRegion: Region | undefined = regionRef.current ?? (
+    location
+      ? {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          latitudeDelta: DEFAULT_DELTA,
+          longitudeDelta: DEFAULT_DELTA,
+        }
+      : undefined
+  );
+
+  const handleSelectAircraft = (icao24: string | null): void => {
+    setSelectedIcao24((prev) => {
+      if (prev === icao24) return prev;
+      setMapResetKey((key) => key + 1);
+      return icao24;
+    });
+  };
+
   useEffect(() => {
     if (selectedIcao24 && !aircraft.some((ac) => ac.icao24 === selectedIcao24)) {
-      setSelectedIcao24(null);
+      handleSelectAircraft(null);
     }
   }, [aircraft, selectedIcao24]);
-
-  const initialRegion: Region | undefined = location
-    ? {
-        latitude: location.latitude,
-        longitude: location.longitude,
-        latitudeDelta: DEFAULT_DELTA,
-        longitudeDelta: DEFAULT_DELTA,
-      }
-    : undefined;
 
   useEffect(() => {
     if (!mapRef.current || !location) return;
@@ -503,6 +515,7 @@ export default function SkyMap({
   return (
     <View style={[styles.container, { height: mapHeight }]}>
       <MapView
+        key={`map-${mapResetKey}`}
         ref={mapRef}
         style={styles.map}
         provider={PROVIDER_DEFAULT}
@@ -512,8 +525,9 @@ export default function SkyMap({
         showsCompass={false}
         userInterfaceStyle="dark"
         mapType="standard"
-        onPress={() => setSelectedIcao24(null)}
+        onPress={() => handleSelectAircraft(null)}
         onRegionChangeComplete={(region) => {
+          regionRef.current = region;
           setLatitudeDelta(region.latitudeDelta);
         }}
       >
@@ -590,7 +604,7 @@ export default function SkyMap({
             aircraft={ac}
             isClosest={index === 0}
             isSelected={ac.icao24 === selectedIcao24}
-            onPress={() => setSelectedIcao24(ac.icao24)}
+            onPress={() => handleSelectAircraft(ac.icao24)}
           />
         ))}
       </MapView>
@@ -598,7 +612,7 @@ export default function SkyMap({
       {selectedAircraft ? (
         <AircraftPopup
           aircraft={selectedAircraft}
-          onClose={() => setSelectedIcao24(null)}
+          onClose={() => handleSelectAircraft(null)}
         />
       ) : (
         <View style={styles.legend}>

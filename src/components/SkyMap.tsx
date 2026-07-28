@@ -322,7 +322,6 @@ export default function SkyMap({
   const regionRef = useRef<Region | null>(null);
   const [selectedIcao24, setSelectedIcao24] = useState<string | null>(null);
   const [latitudeDelta, setLatitudeDelta] = useState(DEFAULT_DELTA);
-  const [mapResetKey, setMapResetKey] = useState(0);
 
   const mapAircraft = aircraft.slice(0, MAX_MAP_AIRCRAFT);
 
@@ -454,11 +453,7 @@ export default function SkyMap({
   );
 
   const handleSelectAircraft = (icao24: string | null): void => {
-    setSelectedIcao24((prev) => {
-      if (prev === icao24) return prev;
-      setMapResetKey((key) => key + 1);
-      return icao24;
-    });
+    setSelectedIcao24((prev) => (prev === icao24 ? prev : icao24));
   };
 
   useEffect(() => {
@@ -512,10 +507,24 @@ export default function SkyMap({
     );
   }
 
+  const hiddenPoint = {
+    latitude: location.latitude,
+    longitude: location.longitude,
+  };
+  const hiddenLine = [hiddenPoint, hiddenPoint];
+  const hiddenArrow = [hiddenPoint, hiddenPoint, hiddenPoint];
+  const routeOverlayVisible = selectedRouteLines != null && selectedRouteEndpoints != null;
+  const routeFlownCoords = routeOverlayVisible ? selectedRouteLines.flown : hiddenLine;
+  const routeRemainingCoords = routeOverlayVisible ? selectedRouteLines.remaining : hiddenLine;
+  const routeArrowCoords = Array.from({ length: 3 }, (_, index) =>
+    routeOverlayVisible ? (selectedRouteArrows[index] ?? hiddenArrow) : hiddenArrow,
+  );
+  const departureCoordinate = routeOverlayVisible ? selectedRouteEndpoints.departure : hiddenPoint;
+  const arrivalCoordinate = routeOverlayVisible ? selectedRouteEndpoints.arrival : hiddenPoint;
+
   return (
     <View style={[styles.container, { height: mapHeight }]}>
       <MapView
-        key={`map-${mapResetKey}`}
         ref={mapRef}
         style={styles.map}
         provider={PROVIDER_DEFAULT}
@@ -541,62 +550,56 @@ export default function SkyMap({
             zIndex={1}
           />
         ) : null}
-        {selectedRouteLines ? (
-          <Polyline
-            key="route-flown"
-            coordinates={selectedRouteLines.flown}
-            strokeColor={COLORS.cyan}
-            strokeWidth={2}
-            lineDashPattern={[10, 8]}
-            zIndex={2}
-          />
-        ) : null}
-        {selectedRouteLines ? (
-          <Polyline
-            key="route-remaining"
-            coordinates={selectedRouteLines.remaining}
-            strokeColor={COLORS.cyan}
-            strokeWidth={2}
-            lineDashPattern={[10, 8]}
-            zIndex={2}
-          />
-        ) : null}
-        {selectedRouteArrows.map((coords, index) => (
+        <Polyline
+          key="route-flown"
+          coordinates={routeFlownCoords}
+          strokeColor={routeOverlayVisible ? COLORS.cyan : 'rgba(0, 0, 0, 0)'}
+          strokeWidth={2}
+          lineDashPattern={[10, 8]}
+          zIndex={2}
+        />
+        <Polyline
+          key="route-remaining"
+          coordinates={routeRemainingCoords}
+          strokeColor={routeOverlayVisible ? COLORS.cyan : 'rgba(0, 0, 0, 0)'}
+          strokeWidth={2}
+          lineDashPattern={[10, 8]}
+          zIndex={2}
+        />
+        {routeArrowCoords.map((coords, index) => (
           <Polygon
             key={`route-arrow-${index}`}
             coordinates={coords}
-            fillColor="rgba(0, 212, 255, 0.85)"
-            strokeColor={COLORS.cyan}
+            fillColor={routeOverlayVisible ? 'rgba(0, 212, 255, 0.85)' : 'rgba(0, 0, 0, 0)'}
+            strokeColor={routeOverlayVisible ? COLORS.cyan : 'rgba(0, 0, 0, 0)'}
             strokeWidth={1}
             zIndex={4}
           />
         ))}
-        {selectedRouteEndpoints ? (
-          <Marker
-            key="route-departure"
-            coordinate={selectedRouteEndpoints.departure}
-            anchor={{ x: 0.5, y: 0.5 }}
-            tracksViewChanges={false}
-            zIndex={3}
+        <Marker
+          key="route-departure"
+          coordinate={departureCoordinate}
+          anchor={{ x: 0.5, y: 0.5 }}
+          tracksViewChanges={false}
+          zIndex={3}
+        >
+          <View style={[styles.airportDot, !routeOverlayVisible && styles.hiddenOverlayMarker]}>
+            <View style={[styles.airportDotInner, { backgroundColor: COLORS.muted }]} />
+          </View>
+        </Marker>
+        <Marker
+          key="route-arrival"
+          coordinate={arrivalCoordinate}
+          anchor={{ x: 0.5, y: 0.5 }}
+          tracksViewChanges={false}
+          zIndex={3}
+        >
+          <View
+            style={[styles.airportDotArrival, !routeOverlayVisible && styles.hiddenOverlayMarker]}
           >
-            <View style={styles.airportDot}>
-              <View style={[styles.airportDotInner, { backgroundColor: COLORS.muted }]} />
-            </View>
-          </Marker>
-        ) : null}
-        {selectedRouteEndpoints ? (
-          <Marker
-            key="route-arrival"
-            coordinate={selectedRouteEndpoints.arrival}
-            anchor={{ x: 0.5, y: 0.5 }}
-            tracksViewChanges={false}
-            zIndex={3}
-          >
-            <View style={styles.airportDotArrival}>
-              <MaterialIcons name="flag" size={10} color={COLORS.cyan} />
-            </View>
-          </Marker>
-        ) : null}
+            <MaterialIcons name="flag" size={10} color={COLORS.cyan} />
+          </View>
+        </Marker>
         <UserLocationMarker location={location} />
         {mapAircraft.map((ac, index) => (
           <AircraftMarker
@@ -712,6 +715,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: COLORS.cyan,
+  },
+  hiddenOverlayMarker: {
+    opacity: 0,
   },
   planeRotate: {
     alignItems: 'center',

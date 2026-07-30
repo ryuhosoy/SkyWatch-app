@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -51,6 +51,7 @@ export default function MainScreen(): React.JSX.Element {
   useReapproachNotifications(aircraft, permissionGranted);
 
   const mapAircraft = useSmoothedAircraft(aircraft, lastUpdated);
+  const [aircraftSelected, setAircraftSelected] = useState(false);
 
   const blinkAnim = useRef(new Animated.Value(1)).current;
 
@@ -122,59 +123,62 @@ export default function MainScreen(): React.JSX.Element {
             heading={heading}
             aircraft={mapAircraft}
             loading={loading}
+            onSelectionChange={setAircraftSelected}
           />
 
-          <View style={styles.nearestBar} pointerEvents="box-none">
-            {loading ? (
-              <Animated.Text style={[styles.nearestBarStatus, { opacity: blinkAnim }]}>
-                {t('scanning')}
-              </Animated.Text>
-            ) : error ? (
-              <View style={styles.nearestBarRow}>
-                <Text style={styles.nearestBarError} numberOfLines={1}>
-                  {error}
-                </Text>
-                <TouchableOpacity style={styles.retryBtn} onPress={manualRefresh}>
-                  <Text style={styles.retryBtnText}>{t('retry')}</Text>
-                </TouchableOpacity>
-              </View>
-            ) : closestAircraft ? (
-              <>
+          {!aircraftSelected ? (
+            <View style={styles.nearestBar} pointerEvents="box-none">
+              {loading ? (
+                <Animated.Text style={[styles.nearestBarStatus, { opacity: blinkAnim }]}>
+                  {t('scanning')}
+                </Animated.Text>
+              ) : error ? (
                 <View style={styles.nearestBarRow}>
-                  <Text style={styles.nearestLabel}>{t('nearestAircraft')}</Text>
-                  <Text style={styles.nearestMeta} numberOfLines={1}>
-                    {lastUpdated ? formatLocaleTime(lastUpdated) : '--:--:--'}
-                    {location
-                      ? `  ·  ${formatCoord(location.latitude, 'N', 'S')} ${formatCoord(location.longitude, 'E', 'W')}`
-                      : ''}
+                  <Text style={styles.nearestBarError} numberOfLines={1}>
+                    {error}
                   </Text>
+                  <TouchableOpacity style={styles.retryBtn} onPress={manualRefresh}>
+                    <Text style={styles.retryBtnText}>{t('retry')}</Text>
+                  </TouchableOpacity>
                 </View>
+              ) : closestAircraft ? (
+                <>
+                  <View style={styles.nearestBarRow}>
+                    <Text style={styles.nearestLabel}>{t('nearestAircraft')}</Text>
+                    <Text style={styles.nearestMeta} numberOfLines={1}>
+                      {lastUpdated ? formatLocaleTime(lastUpdated) : '--:--:--'}
+                      {location
+                        ? `  ·  ${formatCoord(location.latitude, 'N', 'S')} ${formatCoord(location.longitude, 'E', 'W')}`
+                        : ''}
+                    </Text>
+                  </View>
+                  <View style={styles.nearestBarRow}>
+                    <Text style={styles.nearestCallsign}>{closestAircraft.flightNumber}</Text>
+                    <Text style={styles.nearestStats} numberOfLines={1}>
+                      {closestAircraft.altitudeMeters.toLocaleString()} m
+                      {'  ·  '}
+                      {closestAircraft.distanceKm} km
+                    </Text>
+                  </View>
+                  <View style={styles.nearestBarRow}>
+                    <Text style={styles.nearestRoute} numberOfLines={1}>
+                      {closestRoute ?? closestAircraft.airlineName}
+                    </Text>
+                    <TouchableOpacity onPress={manualRefresh} style={styles.refreshBtn}>
+                      <Text style={styles.refreshBtnText}>{t('refresh')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              ) : (
                 <View style={styles.nearestBarRow}>
-                  <Text style={styles.nearestCallsign}>{closestAircraft.flightNumber}</Text>
-                  <Text style={styles.nearestStats} numberOfLines={1}>
-                    {closestAircraft.altitudeMeters.toLocaleString()} m
-                    {'  ·  '}
-                    {closestAircraft.distanceKm} km
-                  </Text>
-                </View>
-                <View style={styles.nearestBarRow}>
-                  <Text style={styles.nearestRoute} numberOfLines={1}>
-                    {closestRoute ?? closestAircraft.airlineName}
-                  </Text>
+                  <Text style={styles.nearestBarStatus}>{t('noAircraftOverhead')}</Text>
                   <TouchableOpacity onPress={manualRefresh} style={styles.refreshBtn}>
                     <Text style={styles.refreshBtnText}>{t('refresh')}</Text>
                   </TouchableOpacity>
                 </View>
-              </>
-            ) : (
-              <View style={styles.nearestBarRow}>
-                <Text style={styles.nearestBarStatus}>{t('noAircraftOverhead')}</Text>
-                <TouchableOpacity onPress={manualRefresh} style={styles.refreshBtn}>
-                  <Text style={styles.refreshBtnText}>{t('refresh')}</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
+              )}
+            </View>
+          ) : null}
         </View>
 
         {!loading && !error && aircraft.length > 0 ? (

@@ -57,6 +57,8 @@ interface Props {
   heading?: number | null;
   aircraft: Aircraft[];
   loading?: boolean;
+  /** 機体選択の有無が変わったとき（最近接バーの表示切替用） */
+  onSelectionChange?: (selected: boolean) => void;
 }
 
 function formatRoute(aircraft: Aircraft): string {
@@ -314,6 +316,7 @@ export default function SkyMap({
   heading = null,
   aircraft,
   loading,
+  onSelectionChange,
 }: Props): React.JSX.Element {
   const { height: windowHeight } = useWindowDimensions();
   const mapHeight = Math.max(MAP_HEIGHT_MIN, windowHeight - HEADER_OFFSET);
@@ -455,6 +458,10 @@ export default function SkyMap({
   const handleSelectAircraft = (icao24: string | null): void => {
     setSelectedIcao24((prev) => (prev === icao24 ? prev : icao24));
   };
+
+  useEffect(() => {
+    onSelectionChange?.(selectedIcao24 != null);
+  }, [selectedIcao24, onSelectionChange]);
 
   useEffect(() => {
     if (selectedIcao24 && !aircraft.some((ac) => ac.icao24 === selectedIcao24)) {
@@ -772,14 +779,15 @@ const styles = StyleSheet.create({
   },
   popup: {
     position: 'absolute',
-    left: 8,
-    right: 8,
-    bottom: BOTTOM_OVERLAY_PADDING,
-    backgroundColor: 'rgba(6, 11, 24, 0.95)',
+    left: 12,
+    right: 12,
+    bottom: 12,
+    backgroundColor: 'rgba(10, 22, 40, 0.92)',
     borderRadius: 10,
     borderWidth: 1,
     borderColor: COLORS.cyan,
-    padding: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   popupHeader: {
     flexDirection: 'row',

@@ -37,7 +37,7 @@ const en = {
   errorLocationPermission: 'Location permission is required. Please enable it in Settings.',
   errorLocationFetch: 'Failed to get location.',
 
-  notifyTitle: '✈ {flight} re-approaching (within {km}km)',
+  notifyTitle: '✈ {flight} approaching (within {km}km)',
   notifyBody: 'Distance {dist}km · Altitude {alt}m',
 } as const;
 
@@ -78,7 +78,7 @@ const ja: Record<TranslationKey, string> = {
   errorLocationPermission: '位置情報の許可が必要です。設定から許可してください。',
   errorLocationFetch: '位置情報の取得に失敗しました。',
 
-  notifyTitle: '✈ {flight} が再接近（{km}km以内）',
+  notifyTitle: '✈ {flight} が接近中（{km}km以内）',
   notifyBody: '距離 {dist}km・高度 {alt}m',
 };
 

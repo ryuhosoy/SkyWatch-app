@@ -41,8 +41,6 @@ const COLORS = {
 } as const;
 
 const DEFAULT_DELTA = 0.45;
-/** 地図下部の nearest オーバーレイ分の余白 */
-const BOTTOM_OVERLAY_PADDING = 96;
 /** Fabric の insert クラッシュ緩和のため地図上マーカー数を制限 */
 const MAX_MAP_AIRCRAFT = 30;
 
@@ -230,19 +228,12 @@ export default function SkyMap({
   loading,
   onSelectionChange,
 }: Props): React.JSX.Element {
-  const mapRef = useRef<MapView>(null);
-  const hasFittedRef = useRef(false);
   const regionRef = useRef<Region | null>(null);
   const [selectedIcao24, setSelectedIcao24] = useState<string | null>(null);
   const [popupNonce, setPopupNonce] = useState(0);
   const [latitudeDelta, setLatitudeDelta] = useState(DEFAULT_DELTA);
 
   const mapAircraft = aircraft.slice(0, MAX_MAP_AIRCRAFT);
-
-  const aircraftKey = mapAircraft
-    .map((ac) => ac.icao24)
-    .sort()
-    .join(',');
 
   const selectedAircraft =
     selectedIcao24 != null
@@ -392,41 +383,6 @@ export default function SkyMap({
     }
   }, [aircraft, selectedIcao24]);
 
-  useEffect(() => {
-    if (!mapRef.current || !location) return;
-
-    const points = [
-      { latitude: location.latitude, longitude: location.longitude },
-      ...mapAircraft.map((ac) => ({
-        latitude: ac.latitude,
-        longitude: ac.longitude,
-      })),
-    ];
-
-    if (points.length === 1) {
-      mapRef.current.animateToRegion(
-        {
-          latitude: location.latitude,
-          longitude: location.longitude,
-          latitudeDelta: DEFAULT_DELTA,
-          longitudeDelta: DEFAULT_DELTA,
-        },
-        600,
-      );
-      hasFittedRef.current = true;
-      return;
-    }
-
-    mapRef.current.fitToCoordinates(points, {
-      edgePadding: { top: 48, right: 48, bottom: BOTTOM_OVERLAY_PADDING, left: 48 },
-      animated: hasFittedRef.current,
-    });
-    hasFittedRef.current = true;
-    // 初回の位置取得時 + 航空機セット変更時だけ表示範囲を調整
-    // （位置更新のたびに fit するとマーカーが動いて見えない）
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aircraftKey, location != null]);
-
   if (!location) {
     return (
       <View style={styles.placeholder}>
@@ -455,7 +411,6 @@ export default function SkyMap({
   return (
     <View style={styles.container}>
       <MapView
-        ref={mapRef}
         style={styles.map}
         provider={PROVIDER_DEFAULT}
         initialRegion={initialRegion}

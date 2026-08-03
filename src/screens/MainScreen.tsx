@@ -11,8 +11,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useAircraftOverhead } from '../hooks/useAircraftOverhead';
 import { useReapproachNotifications } from '../hooks/useReapproachNotifications';
 import { useSmoothedAircraft } from '../hooks/useSmoothedAircraft';
-import { formatLocaleTime, t } from '../i18n';
-import { formatAirportDisplay } from '../utils/airports';
+import { t } from '../i18n';
 import SkyMap from '../components/SkyMap';
 
 const COLORS = {
@@ -25,11 +24,6 @@ const COLORS = {
   muted: '#4A7A9B',
   text: '#B8D4E8',
 } as const;
-
-function formatCoord(val: number, posChar: string, negChar: string): string {
-  const sign = val >= 0 ? posChar : negChar;
-  return `${sign}${Math.abs(val).toFixed(4)}°`;
-}
 
 export default function MainScreen(): React.JSX.Element {
   const {
@@ -59,20 +53,7 @@ export default function MainScreen(): React.JSX.Element {
     ).start();
   }, [blinkAnim]);
 
-  const closestAircraft = aircraft[0] ?? null;
-  const closestRoute = closestAircraft
-    ? `${formatAirportDisplay(closestAircraft.departureAirport, {
-        iata: closestAircraft.departureAirportIata,
-        municipality: closestAircraft.departureAirportMunicipality,
-        englishName: closestAircraft.departureAirportEnglishName,
-        countryIso: closestAircraft.departureAirportCountry,
-      }).label} → ${formatAirportDisplay(closestAircraft.arrivalAirport, {
-        iata: closestAircraft.arrivalAirportIata,
-        municipality: closestAircraft.arrivalAirportMunicipality,
-        englishName: closestAircraft.arrivalAirportEnglishName,
-        countryIso: closestAircraft.arrivalAirportCountry,
-      }).label}`
-    : null;
+  const showStatusBar = !aircraftSelected && aircraft.length === 0;
 
   return (
     <View style={styles.root}>
@@ -108,7 +89,7 @@ export default function MainScreen(): React.JSX.Element {
           onSelectionChange={setAircraftSelected}
         />
 
-        {!aircraftSelected ? (
+        {showStatusBar ? (
           <View style={styles.nearestBar} pointerEvents="box-none">
             {loading ? (
               <Animated.Text style={[styles.nearestBarStatus, { opacity: blinkAnim }]}>
@@ -123,34 +104,6 @@ export default function MainScreen(): React.JSX.Element {
                   <Text style={styles.retryBtnText}>{t('retry')}</Text>
                 </TouchableOpacity>
               </View>
-            ) : closestAircraft ? (
-              <>
-                <View style={styles.nearestBarRow}>
-                  <Text style={styles.nearestLabel}>{t('nearestAircraft')}</Text>
-                  <Text style={styles.nearestMeta} numberOfLines={1}>
-                    {lastUpdated ? formatLocaleTime(lastUpdated) : '--:--:--'}
-                    {location
-                      ? `  ·  ${formatCoord(location.latitude, 'N', 'S')} ${formatCoord(location.longitude, 'E', 'W')}`
-                      : ''}
-                  </Text>
-                </View>
-                <View style={styles.nearestBarRow}>
-                  <Text style={styles.nearestCallsign}>{closestAircraft.flightNumber}</Text>
-                  <Text style={styles.nearestStats} numberOfLines={1}>
-                    {closestAircraft.altitudeMeters.toLocaleString()} m
-                    {'  ·  '}
-                    {closestAircraft.distanceKm} km
-                  </Text>
-                </View>
-                <View style={styles.nearestBarRow}>
-                  <Text style={styles.nearestRoute} numberOfLines={1}>
-                    {closestRoute ?? closestAircraft.airlineName}
-                  </Text>
-                  <TouchableOpacity onPress={manualRefresh} style={styles.refreshBtn}>
-                    <Text style={styles.refreshBtnText}>{t('refresh')}</Text>
-                  </TouchableOpacity>
-                </View>
-              </>
             ) : (
               <View style={styles.nearestBarRow}>
                 <Text style={styles.nearestBarStatus}>{t('noAircraftOverhead')}</Text>
@@ -247,40 +200,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     color: COLORS.orange,
-  },
-  nearestLabel: {
-    fontSize: 9,
-    color: COLORS.muted,
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-  },
-  nearestMeta: {
-    flex: 1,
-    textAlign: 'right',
-    fontSize: 10,
-    color: COLORS.muted,
-    fontFamily: 'monospace',
-  },
-  nearestCallsign: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: COLORS.white,
-    fontFamily: 'monospace',
-    letterSpacing: 2,
-  },
-  nearestStats: {
-    flex: 1,
-    textAlign: 'right',
-    fontSize: 12,
-    color: COLORS.cyan,
-    fontFamily: 'monospace',
-    fontWeight: '600',
-  },
-  nearestRoute: {
-    flex: 1,
-    fontSize: 11,
-    color: COLORS.text,
-    fontFamily: 'monospace',
   },
   retryBtn: {
     borderWidth: 1,

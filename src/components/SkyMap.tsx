@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   Platform,
-  Pressable,
 } from 'react-native';
 import MapView, {
   Marker,
@@ -15,9 +14,9 @@ import MapView, {
 } from 'react-native-maps';
 import { MaterialIcons } from '@expo/vector-icons';
 import type { Aircraft, Coordinates } from '../types';
-import { headingDirection, t } from '../i18n';
-import { formatAirportDisplay } from '../utils/airports';
+import { t } from '../i18n';
 import { bearingDeg, greatCirclePoints, moveByHeading } from '../utils/geo';
+import AircraftPopup from './AircraftPopup';
 
 /** Material "flight" のデフォルト向き（北東）を真北 0° に合わせる */
 const PLANE_ICON_HEADING_OFFSET = -45;
@@ -55,89 +54,6 @@ interface Props {
   loading?: boolean;
   /** 機体選択の有無が変わったとき（最近接バーの表示切替用） */
   onSelectionChange?: (selected: boolean) => void;
-}
-
-function formatRoute(aircraft: Aircraft): string {
-  const dep = formatAirportDisplay(aircraft.departureAirport, {
-    iata: aircraft.departureAirportIata,
-    municipality: aircraft.departureAirportMunicipality,
-    englishName: aircraft.departureAirportEnglishName,
-    countryIso: aircraft.departureAirportCountry,
-  });
-  const arr = formatAirportDisplay(aircraft.arrivalAirport, {
-    iata: aircraft.arrivalAirportIata,
-    municipality: aircraft.arrivalAirportMunicipality,
-    englishName: aircraft.arrivalAirportEnglishName,
-    countryIso: aircraft.arrivalAirportCountry,
-  });
-  return `${dep.primary} → ${arr.primary}`;
-}
-
-function AircraftPopup({
-  aircraft,
-  onClose,
-}: {
-  aircraft: Aircraft;
-  onClose: () => void;
-}): React.JSX.Element {
-  const speed =
-    aircraft.velocityMs != null ? `${Math.round(aircraft.velocityMs * 3.6)} km/h` : '--';
-  const heading =
-    aircraft.heading != null
-      ? `${Math.round(aircraft.heading)}° ${headingDirection(aircraft.heading)}`
-      : '--';
-  const model = [aircraft.aircraftIcaoType, aircraft.aircraftManufacturer]
-    .filter(Boolean)
-    .join(' · ');
-
-  return (
-    <View style={styles.popup}>
-      <View style={styles.popupHeader}>
-        <View style={styles.popupTitleRow}>
-          <MaterialIcons name="flight" size={16} color={COLORS.cyan} />
-          <Text style={styles.popupCallsign}>{aircraft.flightNumber}</Text>
-        </View>
-        <Pressable onPress={onClose} hitSlop={12} style={styles.popupClose}>
-          <Text style={styles.popupCloseText}>✕</Text>
-        </Pressable>
-      </View>
-
-      <Text style={styles.popupAirline} numberOfLines={1}>
-        {aircraft.airlineName}
-      </Text>
-      <Text style={styles.popupRoute} numberOfLines={1}>
-        {formatRoute(aircraft)}
-      </Text>
-      {model ? (
-        <Text style={styles.popupModel} numberOfLines={1}>
-          {model}
-        </Text>
-      ) : null}
-
-      <View style={styles.popupStats}>
-        <View style={styles.popupStat}>
-          <Text style={styles.popupStatLabel}>{t('altitude')}</Text>
-          <Text style={styles.popupStatValue}>
-            {aircraft.altitudeMeters.toLocaleString()} m
-          </Text>
-        </View>
-        <View style={styles.popupStat}>
-          <Text style={styles.popupStatLabel}>{t('distance')}</Text>
-          <Text style={[styles.popupStatValue, { color: COLORS.cyan }]}>
-            {aircraft.distanceKm} km
-          </Text>
-        </View>
-        <View style={styles.popupStat}>
-          <Text style={styles.popupStatLabel}>{t('speed')}</Text>
-          <Text style={styles.popupStatValue}>{speed}</Text>
-        </View>
-        <View style={styles.popupStat}>
-          <Text style={styles.popupStatLabel}>{t('heading')}</Text>
-          <Text style={styles.popupStatValue}>{heading}</Text>
-        </View>
-      </View>
-    </View>
-  );
 }
 
 function AircraftMarker({
@@ -318,6 +234,7 @@ export default function SkyMap({
   const hasFittedRef = useRef(false);
   const regionRef = useRef<Region | null>(null);
   const [selectedIcao24, setSelectedIcao24] = useState<string | null>(null);
+  const [popupNonce, setPopupNonce] = useState(0);
   const [latitudeDelta, setLatitudeDelta] = useState(DEFAULT_DELTA);
 
   const mapAircraft = aircraft.slice(0, MAX_MAP_AIRCRAFT);
@@ -333,6 +250,14 @@ export default function SkyMap({
           aircraft.find((ac) => ac.icao24 === selectedIcao24) ??
           null)
       : null;
+
+  const nearestAircraft = mapAircraft[0] ?? null;
+  const isNearestSelected =
+    selectedAircraft != null &&
+    nearestAircraft != null &&
+    selectedAircraft.icao24 === nearestAircraft.icao24;
+  /** 最接近カードを出している（未選択 or 最接近をタップしただけ） */
+  const showingNearestCard = selectedAircraft == null || isNearestSelected;
 
   const headingBeam = useMemo(() => {
     if (!location || heading == null) return null;
@@ -450,7 +375,11 @@ export default function SkyMap({
   );
 
   const handleSelectAircraft = (icao24: string | null): void => {
-    setSelectedIcao24((prev) => (prev === icao24 ? prev : icao24));
+    if (icao24 != null) {
+      // 同じ機体の再タップでもポップアップを最初から表示し直す
+      setPopupNonce((n) => n + 1);
+    }
+    setSelectedIcao24(icao24);
   };
 
   useEffect(() => {
@@ -514,7 +443,10 @@ export default function SkyMap({
   };
   const hiddenLine = [hiddenPoint, hiddenPoint];
   const hiddenArrow = [hiddenPoint, hiddenPoint, hiddenPoint];
-  const routeOverlayVisible = selectedRouteLines != null && selectedRouteEndpoints != null;
+  const routeOverlayVisible =
+    !showingNearestCard &&
+    selectedRouteLines != null &&
+    selectedRouteEndpoints != null;
   const routeFlownCoords = routeOverlayVisible ? selectedRouteLines.flown : hiddenLine;
   const routeRemainingCoords = routeOverlayVisible ? selectedRouteLines.remaining : hiddenLine;
   const routeArrowCoords = Array.from({ length: 3 }, (_, index) =>
@@ -607,33 +539,43 @@ export default function SkyMap({
             key={ac.icao24}
             aircraft={ac}
             isClosest={index === 0}
-            isSelected={ac.icao24 === selectedIcao24}
+            isSelected={ac.icao24 === selectedIcao24 && !isNearestSelected}
             onPress={() => handleSelectAircraft(ac.icao24)}
           />
         ))}
       </MapView>
 
-      {selectedAircraft ? (
+      {showingNearestCard ? (
+        <>
+          <View style={styles.legend}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: COLORS.cyan }]} />
+              <Text style={styles.legendText}>{t('legendClosest')}</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: COLORS.orange }]} />
+              <Text style={styles.legendText}>{t('legendAircraft')}</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: '#4285F4' }]} />
+              <Text style={styles.legendText}>{t('legendYou')}</Text>
+            </View>
+          </View>
+          {nearestAircraft ? (
+            <AircraftPopup
+              key={`nearest-${nearestAircraft.icao24}-${popupNonce}`}
+              aircraft={nearestAircraft}
+              label={t('nearestAircraft')}
+            />
+          ) : null}
+        </>
+      ) : selectedAircraft ? (
         <AircraftPopup
+          key={`selected-${selectedAircraft.icao24}-${popupNonce}`}
           aircraft={selectedAircraft}
           onClose={() => handleSelectAircraft(null)}
         />
-      ) : (
-        <View style={styles.legend}>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: COLORS.cyan }]} />
-            <Text style={styles.legendText}>{t('legendClosest')}</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: COLORS.orange }]} />
-            <Text style={styles.legendText}>{t('legendAircraft')}</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#4285F4' }]} />
-            <Text style={styles.legendText}>{t('legendYou')}</Text>
-          </View>
-        </View>
-      )}
+      ) : null}
     </View>
   );
 }
@@ -772,84 +714,5 @@ const styles = StyleSheet.create({
   legendText: {
     fontSize: 9,
     color: COLORS.muted,
-  },
-  popup: {
-    position: 'absolute',
-    left: 12,
-    right: 12,
-    bottom: 12,
-    backgroundColor: 'rgba(10, 22, 40, 0.92)',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: COLORS.cyan,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  popupHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 2,
-  },
-  popupTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flex: 1,
-  },
-  popupCallsign: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.white,
-    fontFamily: 'monospace',
-    letterSpacing: 1,
-  },
-  popupClose: {
-    padding: 2,
-  },
-  popupCloseText: {
-    color: COLORS.muted,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  popupAirline: {
-    fontSize: 12,
-    color: COLORS.text,
-    marginBottom: 2,
-  },
-  popupRoute: {
-    fontSize: 12,
-    color: COLORS.cyan,
-    marginBottom: 2,
-  },
-  popupModel: {
-    fontSize: 10,
-    color: COLORS.muted,
-    fontFamily: 'monospace',
-    marginBottom: 8,
-  },
-  popupStats: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  popupStat: {
-    flexGrow: 1,
-    flexBasis: '22%',
-    backgroundColor: 'rgba(26, 58, 92, 0.45)',
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 5,
-  },
-  popupStatLabel: {
-    fontSize: 9,
-    color: COLORS.muted,
-    marginBottom: 2,
-  },
-  popupStatValue: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: COLORS.white,
-    fontFamily: 'monospace',
   },
 });

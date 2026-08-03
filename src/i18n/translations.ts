@@ -17,6 +17,8 @@ const en = {
   distance: 'Distance',
   speed: 'Speed',
   heading: 'Heading',
+  photoCredit: 'Photo: {name}',
+  photoSource: 'Planespotters.net',
 
   dirN: 'N',
   dirNE: 'NE',
@@ -56,6 +58,8 @@ const ja: Record<TranslationKey, string> = {
   distance: '距離',
   speed: '速度',
   heading: '方位',
+  photoCredit: '写真: {name}',
+  photoSource: 'Planespotters.net',
 
   dirN: '北',
   dirNE: '北東',

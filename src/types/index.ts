@@ -31,7 +31,6 @@ export interface Aircraft {
   aircraftType: string | null;
   aircraftIcaoType: string | null;
   aircraftManufacturer: string | null;
-  photoUrl: string | null;
 }
 
 export interface Coordinates {

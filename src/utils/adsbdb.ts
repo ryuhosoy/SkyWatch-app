@@ -1,5 +1,4 @@
 import type { Aircraft } from '../types';
-import { resolveTypeImageUrl } from './aircraftTypeImages';
 
 const ADSBDB_BASE = 'https://api.adsbdb.com/v0';
 
@@ -45,8 +44,6 @@ interface AdsbdbAircraftInfo {
   type: string;
   icao_type: string;
   manufacturer: string;
-  url_photo: string | null;
-  url_photo_thumbnail: string | null;
 }
 
 interface AdsbdbAircraftResponse {
@@ -216,7 +213,6 @@ function applyAircraftInfo(ac: Aircraft, info: AdsbdbAircraftInfo | null): Aircr
     aircraftType: info.type ?? null,
     aircraftIcaoType: icaoType,
     aircraftManufacturer: info.manufacturer ?? null,
-    photoUrl: resolveTypeImageUrl(icaoType),
   };
 }
 

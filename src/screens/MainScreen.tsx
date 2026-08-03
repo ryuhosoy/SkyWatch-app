@@ -2,11 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   StyleSheet,
   TouchableOpacity,
   Animated,
-  RefreshControl,
   Platform,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -16,11 +14,9 @@ import { useSmoothedAircraft } from '../hooks/useSmoothedAircraft';
 import { formatLocaleTime, t } from '../i18n';
 import { formatAirportDisplay } from '../utils/airports';
 import SkyMap from '../components/SkyMap';
-import AircraftCard from '../components/AircraftCard';
 
 const COLORS = {
   bg: '#060B18',
-  panel: '#0A1628',
   panelBorder: '#1A3A5C',
   cyan: '#00D4FF',
   cyanDim: 'rgba(0, 212, 255, 0.1)',
@@ -41,7 +37,6 @@ export default function MainScreen(): React.JSX.Element {
     heading,
     aircraft,
     loading,
-    refreshing,
     error,
     lastUpdated,
     manualRefresh,
@@ -104,103 +99,69 @@ export default function MainScreen(): React.JSX.Element {
         </View>
       </View>
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={manualRefresh}
-            tintColor={COLORS.cyan}
-            colors={[COLORS.cyan]}
-          />
-        }
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.mapSection}>
-          <SkyMap
-            location={location}
-            heading={heading}
-            aircraft={mapAircraft}
-            loading={loading}
-            onSelectionChange={setAircraftSelected}
-          />
+      <View style={styles.mapSection}>
+        <SkyMap
+          location={location}
+          heading={heading}
+          aircraft={mapAircraft}
+          loading={loading}
+          onSelectionChange={setAircraftSelected}
+        />
 
-          {!aircraftSelected ? (
-            <View style={styles.nearestBar} pointerEvents="box-none">
-              {loading ? (
-                <Animated.Text style={[styles.nearestBarStatus, { opacity: blinkAnim }]}>
-                  {t('scanning')}
-                </Animated.Text>
-              ) : error ? (
+        {!aircraftSelected ? (
+          <View style={styles.nearestBar} pointerEvents="box-none">
+            {loading ? (
+              <Animated.Text style={[styles.nearestBarStatus, { opacity: blinkAnim }]}>
+                {t('scanning')}
+              </Animated.Text>
+            ) : error ? (
+              <View style={styles.nearestBarRow}>
+                <Text style={styles.nearestBarError} numberOfLines={1}>
+                  {error}
+                </Text>
+                <TouchableOpacity style={styles.retryBtn} onPress={manualRefresh}>
+                  <Text style={styles.retryBtnText}>{t('retry')}</Text>
+                </TouchableOpacity>
+              </View>
+            ) : closestAircraft ? (
+              <>
                 <View style={styles.nearestBarRow}>
-                  <Text style={styles.nearestBarError} numberOfLines={1}>
-                    {error}
+                  <Text style={styles.nearestLabel}>{t('nearestAircraft')}</Text>
+                  <Text style={styles.nearestMeta} numberOfLines={1}>
+                    {lastUpdated ? formatLocaleTime(lastUpdated) : '--:--:--'}
+                    {location
+                      ? `  ·  ${formatCoord(location.latitude, 'N', 'S')} ${formatCoord(location.longitude, 'E', 'W')}`
+                      : ''}
                   </Text>
-                  <TouchableOpacity style={styles.retryBtn} onPress={manualRefresh}>
-                    <Text style={styles.retryBtnText}>{t('retry')}</Text>
-                  </TouchableOpacity>
                 </View>
-              ) : closestAircraft ? (
-                <>
-                  <View style={styles.nearestBarRow}>
-                    <Text style={styles.nearestLabel}>{t('nearestAircraft')}</Text>
-                    <Text style={styles.nearestMeta} numberOfLines={1}>
-                      {lastUpdated ? formatLocaleTime(lastUpdated) : '--:--:--'}
-                      {location
-                        ? `  ·  ${formatCoord(location.latitude, 'N', 'S')} ${formatCoord(location.longitude, 'E', 'W')}`
-                        : ''}
-                    </Text>
-                  </View>
-                  <View style={styles.nearestBarRow}>
-                    <Text style={styles.nearestCallsign}>{closestAircraft.flightNumber}</Text>
-                    <Text style={styles.nearestStats} numberOfLines={1}>
-                      {closestAircraft.altitudeMeters.toLocaleString()} m
-                      {'  ·  '}
-                      {closestAircraft.distanceKm} km
-                    </Text>
-                  </View>
-                  <View style={styles.nearestBarRow}>
-                    <Text style={styles.nearestRoute} numberOfLines={1}>
-                      {closestRoute ?? closestAircraft.airlineName}
-                    </Text>
-                    <TouchableOpacity onPress={manualRefresh} style={styles.refreshBtn}>
-                      <Text style={styles.refreshBtnText}>{t('refresh')}</Text>
-                    </TouchableOpacity>
-                  </View>
-                </>
-              ) : (
                 <View style={styles.nearestBarRow}>
-                  <Text style={styles.nearestBarStatus}>{t('noAircraftOverhead')}</Text>
+                  <Text style={styles.nearestCallsign}>{closestAircraft.flightNumber}</Text>
+                  <Text style={styles.nearestStats} numberOfLines={1}>
+                    {closestAircraft.altitudeMeters.toLocaleString()} m
+                    {'  ·  '}
+                    {closestAircraft.distanceKm} km
+                  </Text>
+                </View>
+                <View style={styles.nearestBarRow}>
+                  <Text style={styles.nearestRoute} numberOfLines={1}>
+                    {closestRoute ?? closestAircraft.airlineName}
+                  </Text>
                   <TouchableOpacity onPress={manualRefresh} style={styles.refreshBtn}>
                     <Text style={styles.refreshBtnText}>{t('refresh')}</Text>
                   </TouchableOpacity>
                 </View>
-              )}
-            </View>
-          ) : null}
-        </View>
-
-        {!loading && !error && aircraft.length > 0 ? (
-          <View style={styles.countBar}>
-            <Text style={styles.countText}>
-              {t('trackingCount', { count: aircraft.length })}
-            </Text>
+              </>
+            ) : (
+              <View style={styles.nearestBarRow}>
+                <Text style={styles.nearestBarStatus}>{t('noAircraftOverhead')}</Text>
+                <TouchableOpacity onPress={manualRefresh} style={styles.refreshBtn}>
+                  <Text style={styles.refreshBtnText}>{t('refresh')}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         ) : null}
-
-        {aircraft.length > 0 && (
-          <View style={styles.listSection}>
-            {aircraft.slice(0, 15).map((ac, i) => (
-              <AircraftCard key={ac.icao24} aircraft={ac} index={i} />
-            ))}
-          </View>
-        )}
-
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>{t('footerData')}</Text>
-        </View>
-      </ScrollView>
+      </View>
     </View>
   );
 }
@@ -252,13 +213,8 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     fontFamily: 'monospace',
   },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 40,
-  },
   mapSection: {
+    flex: 1,
     position: 'relative',
   },
   nearestBar: {
@@ -338,19 +294,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: 'monospace',
   },
-  countBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 4,
-  },
-  countText: {
-    fontSize: 12,
-    color: COLORS.muted,
-    letterSpacing: 0.5,
-  },
   refreshBtn: {
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -363,19 +306,5 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: COLORS.cyan,
     fontFamily: 'monospace',
-  },
-  listSection: {
-    paddingHorizontal: 16,
-  },
-  footer: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    alignItems: 'center',
-  },
-  footerText: {
-    fontSize: 11,
-    color: COLORS.muted,
-    textAlign: 'center',
-    lineHeight: 18,
   },
 });

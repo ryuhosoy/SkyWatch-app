@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Platform,
   Pressable,
-  useWindowDimensions,
 } from 'react-native';
 import MapView, {
   Marker,
@@ -42,9 +41,6 @@ const COLORS = {
   text: '#B8D4E8',
 } as const;
 
-/** ヘッダー分を除いて、画面縦方向いっぱいにする */
-const HEADER_OFFSET = Platform.OS === 'ios' ? 112 : 96;
-const MAP_HEIGHT_MIN = 360;
 const DEFAULT_DELTA = 0.45;
 /** 地図下部の nearest オーバーレイ分の余白 */
 const BOTTOM_OVERLAY_PADDING = 96;
@@ -318,8 +314,6 @@ export default function SkyMap({
   loading,
   onSelectionChange,
 }: Props): React.JSX.Element {
-  const { height: windowHeight } = useWindowDimensions();
-  const mapHeight = Math.max(MAP_HEIGHT_MIN, windowHeight - HEADER_OFFSET);
   const mapRef = useRef<MapView>(null);
   const hasFittedRef = useRef(false);
   const regionRef = useRef<Region | null>(null);
@@ -506,7 +500,7 @@ export default function SkyMap({
 
   if (!location) {
     return (
-      <View style={[styles.placeholder, { height: mapHeight }]}>
+      <View style={styles.placeholder}>
         <Text style={styles.placeholderText}>
           {loading ? t('mapLoading') : t('mapNoLocation')}
         </Text>
@@ -530,7 +524,7 @@ export default function SkyMap({
   const arrivalCoordinate = routeOverlayVisible ? selectedRouteEndpoints.arrival : hiddenPoint;
 
   return (
-    <View style={[styles.container, { height: mapHeight }]}>
+    <View style={styles.container}>
       <MapView
         ref={mapRef}
         style={styles.map}
@@ -646,23 +640,25 @@ export default function SkyMap({
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
     marginHorizontal: 0,
     marginTop: 0,
     borderRadius: 0,
     overflow: 'hidden',
     borderWidth: 0,
-    borderBottomWidth: 1,
+    borderBottomWidth: 0,
     borderColor: COLORS.panelBorder,
   },
   map: {
     flex: 1,
   },
   placeholder: {
+    flex: 1,
     marginHorizontal: 0,
     marginTop: 0,
     borderRadius: 0,
     borderWidth: 0,
-    borderBottomWidth: 1,
+    borderBottomWidth: 0,
     borderColor: COLORS.panelBorder,
     backgroundColor: '#0A1628',
     alignItems: 'center',

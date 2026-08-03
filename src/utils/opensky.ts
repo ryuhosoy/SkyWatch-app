@@ -156,7 +156,6 @@ export async function fetchAircraftOverhead(
         aircraftType: null,
         aircraftIcaoType: null,
         aircraftManufacturer: null,
-        photoUrl: null,
       };
     })
     .sort((a, b) => a.distanceKm - b.distanceKm);

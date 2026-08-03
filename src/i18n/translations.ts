@@ -3,17 +3,10 @@ export type TranslationKey = keyof typeof en;
 const en = {
   tagline: 'Watch the sky above',
   scanning: 'Scanning...',
-  fetchingLocation: 'Getting your location',
   retry: 'Retry',
   nearestAircraft: 'Nearest aircraft',
-  altitudeAbove: '{alt} m above',
-  horizontalDistance: 'Horizontal distance {dist} km',
   noAircraftOverhead: 'No aircraft overhead',
-  radiusAbout90km: 'Within ~90 km radius',
-  trackingCount: 'Tracking {count} aircraft',
-  trackingNone: 'No aircraft being tracked',
   refresh: '↻ Refresh',
-  footerData: 'Data: OpenSky Network  •  Auto-updates every 15s',
 
   mapLoading: 'Loading map...',
   mapNoLocation: 'Unable to get location',
@@ -24,13 +17,6 @@ const en = {
   distance: 'Distance',
   speed: 'Speed',
   heading: 'Heading',
-
-  closestBadge: '★ Nearest',
-  departure: 'From',
-  arrival: 'To',
-  horizontalRange: 'Horizontal',
-  climbing: 'Climbing',
-  descending: 'Descending',
 
   dirN: 'N',
   dirNE: 'NE',
@@ -56,17 +42,10 @@ const en = {
 const ja: Record<TranslationKey, string> = {
   tagline: '頭上の空を見る',
   scanning: 'スキャン中...',
-  fetchingLocation: '位置情報を取得しています',
   retry: '再試行',
   nearestAircraft: '最近接航空機',
-  altitudeAbove: '{alt} m 上空',
-  horizontalDistance: '水平距離 {dist} km',
   noAircraftOverhead: '頭上に航空機なし',
-  radiusAbout90km: '半径約90km圏内',
-  trackingCount: '{count}機を追跡中',
-  trackingNone: '現在追跡中の航空機なし',
   refresh: '↻ 更新',
-  footerData: 'データ: OpenSky Network  •  15秒ごとに自動更新',
 
   mapLoading: '地図を読み込み中...',
   mapNoLocation: '位置情報を取得できません',
@@ -77,13 +56,6 @@ const ja: Record<TranslationKey, string> = {
   distance: '距離',
   speed: '速度',
   heading: '方位',
-
-  closestBadge: '★ 最近接',
-  departure: '出発',
-  arrival: '到着',
-  horizontalRange: '水平距離',
-  climbing: '上昇中',
-  descending: '降下中',
 
   dirN: '北',
   dirNE: '北東',

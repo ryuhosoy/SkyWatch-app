@@ -443,10 +443,7 @@ export default function SkyMap({
   };
   const hiddenLine = [hiddenPoint, hiddenPoint];
   const hiddenArrow = [hiddenPoint, hiddenPoint, hiddenPoint];
-  const routeOverlayVisible =
-    !showingNearestCard &&
-    selectedRouteLines != null &&
-    selectedRouteEndpoints != null;
+  const routeOverlayVisible = selectedRouteLines != null && selectedRouteEndpoints != null;
   const routeFlownCoords = routeOverlayVisible ? selectedRouteLines.flown : hiddenLine;
   const routeRemainingCoords = routeOverlayVisible ? selectedRouteLines.remaining : hiddenLine;
   const routeArrowCoords = Array.from({ length: 3 }, (_, index) =>

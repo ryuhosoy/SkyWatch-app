@@ -135,26 +135,20 @@ function buildHeadingBeam(
   lengthM: number,
   baseHalfWidthM: number,
 ): Coordinates[] {
-  // 手元が広く、尖端が進行方向の外側を向く三角形
-  const tip = moveByHeading(
+  // 尖端が自分、進行方向の外側に向かって広がる三角形
+  const tip: Coordinates = {
+    latitude: location.latitude,
+    longitude: location.longitude,
+  };
+  const far = moveByHeading(
     location.latitude,
     location.longitude,
     heading,
     lengthM,
   );
-  const left = moveByHeading(
-    location.latitude,
-    location.longitude,
-    heading - 90,
-    baseHalfWidthM,
-  );
-  const right = moveByHeading(
-    location.latitude,
-    location.longitude,
-    heading + 90,
-    baseHalfWidthM,
-  );
-  return [left, tip, right];
+  const left = moveByHeading(far.latitude, far.longitude, heading - 90, baseHalfWidthM);
+  const right = moveByHeading(far.latitude, far.longitude, heading + 90, baseHalfWidthM);
+  return [tip, left, right];
 }
 
 /** 折れ線上の指定割合の位置と、そこでの進行方位 */

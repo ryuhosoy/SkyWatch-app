@@ -14,6 +14,7 @@ import MapView, {
 } from 'react-native-maps';
 import { MaterialIcons } from '@expo/vector-icons';
 import type { Aircraft, Coordinates } from '../types';
+import type { AircraftTrackHistory } from '../hooks/useAircraftTrackHistory';
 import { t } from '../i18n';
 import { bearingDeg, greatCirclePoints, moveByHeading } from '../utils/geo';
 import AircraftPopup from './AircraftPopup';
@@ -49,6 +50,8 @@ interface Props {
   /** 端末の向き（真北からの度数）。未取得時は null */
   heading?: number | null;
   aircraft: Aircraft[];
+  /** 観測済みの実測軌跡（通過済み経路の描画用） */
+  trackHistory?: AircraftTrackHistory;
   loading?: boolean;
   /** 機体選択の有無が変わったとき（最近接バーの表示切替用） */
   onSelectionChange?: (selected: boolean) => void;
@@ -219,6 +222,7 @@ export default function SkyMap({
   location,
   heading = null,
   aircraft,
+  trackHistory,
   loading,
   onSelectionChange,
 }: Props): React.JSX.Element {
@@ -262,17 +266,27 @@ export default function SkyMap({
 
     const planeLat = selectedAircraft.latitude;
     const planeLon = selectedAircraft.longitude;
+    const tracked = trackHistory?.get(selectedAircraft.icao24.toLowerCase());
+    const flown =
+      tracked != null && tracked.length >= 2
+        ? tracked.map((p) => ({
+            latitude: p.latitude,
+            longitude: p.longitude,
+          }))
+        : [];
+
+    // 末尾が現在位置から離れていれば現在位置を付け足す（残り路線との接続用）
+    if (flown.length >= 1) {
+      const last = flown[flown.length - 1];
+      if (last.latitude !== planeLat || last.longitude !== planeLon) {
+        flown.push({ latitude: planeLat, longitude: planeLon });
+      }
+    }
 
     return {
-      // 出発地 → 現在位置（飛行済み）
-      flown: greatCirclePoints(
-        selectedAircraft.departureLatitude,
-        selectedAircraft.departureLongitude,
-        planeLat,
-        planeLon,
-        32,
-      ),
-      // 現在位置 → 目的地（残り）
+      // 通過済み: OpenSky で観測した実測点列のみ（出発空港からの大圏は使わない）
+      flown,
+      // 現在位置 → 目的地（残りは推定大圏のまま）
       remaining: greatCirclePoints(
         planeLat,
         planeLon,
@@ -288,6 +302,8 @@ export default function SkyMap({
     selectedAircraft?.arrivalLongitude,
     selectedAircraft?.latitude,
     selectedAircraft?.longitude,
+    selectedAircraft?.icao24,
+    trackHistory,
   ]);
 
   const selectedRouteArrows = useMemo(() => {
@@ -394,7 +410,9 @@ export default function SkyMap({
   const hiddenLine = [hiddenPoint, hiddenPoint];
   const hiddenArrow = [hiddenPoint, hiddenPoint, hiddenPoint];
   const routeOverlayVisible = selectedRouteLines != null && selectedRouteEndpoints != null;
-  const routeFlownCoords = routeOverlayVisible ? selectedRouteLines.flown : hiddenLine;
+  const flownVisible =
+    routeOverlayVisible && selectedRouteLines.flown.length >= 2;
+  const routeFlownCoords = flownVisible ? selectedRouteLines.flown : hiddenLine;
   const routeRemainingCoords = routeOverlayVisible ? selectedRouteLines.remaining : hiddenLine;
   const routeArrowCoords = Array.from({ length: 3 }, (_, index) =>
     routeOverlayVisible ? (selectedRouteArrows[index] ?? hiddenArrow) : hiddenArrow,
@@ -432,9 +450,8 @@ export default function SkyMap({
         <Polyline
           key="route-flown"
           coordinates={routeFlownCoords}
-          strokeColor={routeOverlayVisible ? COLORS.cyan : 'rgba(0, 0, 0, 0)'}
-          strokeWidth={2}
-          lineDashPattern={[10, 8]}
+          strokeColor={flownVisible ? COLORS.cyan : 'rgba(0, 0, 0, 0)'}
+          strokeWidth={2.5}
           zIndex={2}
         />
         <Polyline

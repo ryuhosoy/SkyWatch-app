@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useAircraftOverhead } from '../hooks/useAircraftOverhead';
+import { useAircraftTrackHistory } from '../hooks/useAircraftTrackHistory';
 import { useReapproachNotifications } from '../hooks/useReapproachNotifications';
 import { t } from '../i18n';
 import SkyMap from '../components/SkyMap';
@@ -37,6 +38,7 @@ export default function MainScreen(): React.JSX.Element {
 
   useReapproachNotifications(aircraft, permissionGranted);
 
+  const trackHistory = useAircraftTrackHistory(aircraft);
   const [aircraftSelected, setAircraftSelected] = useState(false);
 
   const blinkAnim = useRef(new Animated.Value(1)).current;
@@ -82,6 +84,7 @@ export default function MainScreen(): React.JSX.Element {
           location={location}
           heading={heading}
           aircraft={aircraft}
+          trackHistory={trackHistory}
           loading={loading}
           onSelectionChange={setAircraftSelected}
         />

@@ -115,7 +115,7 @@ export async function fetchAircraftOverhead(
   }
 
   const aircraft = data.states
-    .filter((s: OpenSkyState) => !s[8] && s[5] != null && s[6] != null)
+    .filter((s: OpenSkyState) => s[5] != null && s[6] != null)
     .map((s: OpenSkyState): Aircraft => {
       const altMeters = s[7] ?? s[13] ?? 0;
       const callsign = s[1] ? s[1].trim() : null;

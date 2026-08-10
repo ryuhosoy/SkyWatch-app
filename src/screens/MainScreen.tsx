@@ -10,7 +10,6 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { useAircraftOverhead } from '../hooks/useAircraftOverhead';
 import { useReapproachNotifications } from '../hooks/useReapproachNotifications';
-import { useSmoothedAircraft } from '../hooks/useSmoothedAircraft';
 import { t } from '../i18n';
 import SkyMap from '../components/SkyMap';
 
@@ -32,14 +31,12 @@ export default function MainScreen(): React.JSX.Element {
     aircraft,
     loading,
     error,
-    lastUpdated,
     manualRefresh,
     permissionGranted,
   } = useAircraftOverhead();
 
   useReapproachNotifications(aircraft, permissionGranted);
 
-  const mapAircraft = useSmoothedAircraft(aircraft, lastUpdated);
   const [aircraftSelected, setAircraftSelected] = useState(false);
 
   const blinkAnim = useRef(new Animated.Value(1)).current;
@@ -84,7 +81,7 @@ export default function MainScreen(): React.JSX.Element {
         <SkyMap
           location={location}
           heading={heading}
-          aircraft={mapAircraft}
+          aircraft={aircraft}
           loading={loading}
           onSelectionChange={setAircraftSelected}
         />

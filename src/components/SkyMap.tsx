@@ -16,7 +16,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import type { Aircraft, Coordinates } from '../types';
 import type { AircraftTrackHistory } from '../hooks/useAircraftTrackHistory';
 import { t } from '../i18n';
-import { bearingDeg, greatCirclePoints, moveByHeading } from '../utils/geo';
+import { alignToTrackTip, bearingDeg, greatCirclePoints, moveByHeading, shortestHeadingDiff } from '../utils/geo';
 import AircraftPopup from './AircraftPopup';
 
 /** Material "flight" はデフォルトで真北（上）向き */
@@ -232,12 +232,27 @@ export default function SkyMap({
   const [popupNonce, setPopupNonce] = useState(0);
   const [latitudeDelta, setLatitudeDelta] = useState(DEFAULT_DELTA);
 
-  const mapAircraft = aircraft.slice(0, MAX_MAP_AIRCRAFT);
+  const displayAircraft = useMemo(() => {
+    return aircraft.map((ac) => {
+      const track = trackHistory?.get(ac.icao24.toLowerCase());
+      const aligned = alignToTrackTip(ac, track);
+      if (
+        aligned.latitude === ac.latitude &&
+        aligned.longitude === ac.longitude &&
+        aligned.heading === ac.heading
+      ) {
+        return ac;
+      }
+      return { ...ac, ...aligned };
+    });
+  }, [aircraft, trackHistory]);
+
+  const mapAircraft = displayAircraft.slice(0, MAX_MAP_AIRCRAFT);
 
   const selectedAircraft =
     selectedIcao24 != null
       ? (mapAircraft.find((ac) => ac.icao24 === selectedIcao24) ??
-          aircraft.find((ac) => ac.icao24 === selectedIcao24) ??
+          displayAircraft.find((ac) => ac.icao24 === selectedIcao24) ??
           null)
       : null;
 
@@ -288,11 +303,23 @@ export default function SkyMap({
           }))
         : [];
 
-    // 末尾が現在位置から離れていれば現在位置を付け足す（残り路線との接続用）
+    // 現在位置が軌跡より先なら末尾に足す。後ろなら付け足さない（戻り線を防ぐ）
     if (flown.length >= 1) {
       const last = flown[flown.length - 1];
       if (last.latitude !== planeLat || last.longitude !== planeLon) {
-        flown.push({ latitude: planeLat, longitude: planeLon });
+        const prev = flown.length >= 2 ? flown[flown.length - 2] : null;
+        const trackHeading =
+          prev != null
+            ? bearingDeg(prev.latitude, prev.longitude, last.latitude, last.longitude)
+            : selectedAircraft.heading;
+        const toLive = bearingDeg(last.latitude, last.longitude, planeLat, planeLon);
+        const liveIsAhead =
+          trackHeading == null ||
+          !Number.isFinite(trackHeading) ||
+          shortestHeadingDiff(toLive, trackHeading) <= 90;
+        if (liveIsAhead) {
+          flown.push({ latitude: planeLat, longitude: planeLon });
+        }
       }
     }
 

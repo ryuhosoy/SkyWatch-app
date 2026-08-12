@@ -48,6 +48,12 @@ export function haversineKm(
   return (EARTH_RADIUS_M / 1000) * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+/** 方位差（0〜180） */
+export function shortestHeadingDiff(a: number, b: number): number {
+  const delta = Math.abs(a - b) % 360;
+  return Math.min(delta, 360 - delta);
+}
+
 /** 2点間の進行方位（北=0°、時計回り） */
 export function bearingDeg(
   lat1: number,
@@ -62,6 +68,38 @@ export function bearingDeg(
   const x =
     Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
   return (toDeg(Math.atan2(y, x)) + 360) % 360;
+}
+
+/**
+ * ライブ位置が軌跡先端より後ろなら、先端へスナップする。
+ * 先端より先にいる場合はそのまま（経路を伸ばす）。
+ */
+export function alignToTrackTip(
+  live: { latitude: number; longitude: number; heading: number | null },
+  track: readonly { latitude: number; longitude: number }[] | undefined,
+): { latitude: number; longitude: number; heading: number | null } {
+  if (track == null || track.length === 0) return live;
+
+  const tip = track[track.length - 1];
+  const distM =
+    haversineKm(live.latitude, live.longitude, tip.latitude, tip.longitude) * 1000;
+  if (distM < 250) return live;
+
+  const prev = track.length >= 2 ? track[track.length - 2] : null;
+  const trackHeading =
+    prev != null
+      ? bearingDeg(prev.latitude, prev.longitude, tip.latitude, tip.longitude)
+      : live.heading;
+  if (trackHeading == null || !Number.isFinite(trackHeading)) return live;
+
+  const toTip = bearingDeg(live.latitude, live.longitude, tip.latitude, tip.longitude);
+  if (shortestHeadingDiff(toTip, trackHeading) > 90) return live;
+
+  return {
+    latitude: tip.latitude,
+    longitude: tip.longitude,
+    heading: trackHeading,
+  };
 }
 
 /** 大圏航路上の点列（地図のルート線用） */

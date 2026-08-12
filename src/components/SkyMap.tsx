@@ -19,8 +19,7 @@ import { t } from '../i18n';
 import { bearingDeg, greatCirclePoints, moveByHeading } from '../utils/geo';
 import AircraftPopup from './AircraftPopup';
 
-/** Material "flight" のデフォルト向き（北東）を真北 0° に合わせる */
-const PLANE_ICON_HEADING_OFFSET = -45;
+/** Material "flight" はデフォルトで真北（上）向き */}
 
 /** 1°緯度あたりの距離（m） */
 const METERS_PER_DEG_LAT = 111_320;
@@ -72,7 +71,6 @@ function AircraftMarker({
 }): React.JSX.Element {
   const color = isSelected ? COLORS.white : isClosest ? COLORS.cyan : COLORS.orange;
   const headingDeg = aircraft.heading ?? 0;
-  const rotationDeg = headingDeg + PLANE_ICON_HEADING_OFFSET;
   const renderKey = `${aircraft.latitude.toFixed(6)}:${aircraft.longitude.toFixed(6)}:${headingDeg.toFixed(1)}:${isSelected}`;
 
   const [tracksViewChanges, setTracksViewChanges] = useState(true);
@@ -102,7 +100,7 @@ function AircraftMarker({
           style={[
             styles.planeRotate,
             isSelected && styles.planeSelected,
-            { transform: [{ rotate: `${rotationDeg}deg` }] },
+            { transform: [{ rotate: `${headingDeg}deg` }] },
           ]}
         >
           <MaterialIcons name="flight" size={22} color={color} />

@@ -19,7 +19,7 @@ import { t } from '../i18n';
 import { bearingDeg, greatCirclePoints, moveByHeading } from '../utils/geo';
 import AircraftPopup from './AircraftPopup';
 
-/** Material "flight" はデフォルトで真北（上）向き */}
+/** Material "flight" はデフォルトで真北（上）向き */
 
 /** 1°緯度あたりの距離（m） */
 const METERS_PER_DEG_LAT = 111_320;

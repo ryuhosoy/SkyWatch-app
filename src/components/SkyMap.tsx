@@ -52,6 +52,8 @@ interface Props {
   aircraft: Aircraft[];
   /** 観測済みの実測軌跡（通過済み経路の描画用） */
   trackHistory?: AircraftTrackHistory;
+  /** 選択機体などの出発〜現在までの全軌跡を OpenSky から埋める */
+  ensureFullTrack?: (icao24: string) => Promise<void>;
   loading?: boolean;
   /** 機体選択の有無が変わったとき（最近接バーの表示切替用） */
   onSelectionChange?: (selected: boolean) => void;
@@ -223,6 +225,7 @@ export default function SkyMap({
   heading = null,
   aircraft,
   trackHistory,
+  ensureFullTrack,
   loading,
   onSelectionChange,
 }: Props): React.JSX.Element {
@@ -247,6 +250,18 @@ export default function SkyMap({
     selectedAircraft.icao24 === nearestAircraft.icao24;
   /** 最接近カードを出している（未選択 or 最接近をタップしただけ） */
   const showingNearestCard = selectedAircraft == null || isNearestSelected;
+
+  useEffect(() => {
+    if (!ensureFullTrack) return;
+    if (selectedIcao24) {
+      void ensureFullTrack(selectedIcao24);
+    }
+  }, [selectedIcao24, ensureFullTrack]);
+
+  useEffect(() => {
+    if (!ensureFullTrack || !nearestAircraft) return;
+    void ensureFullTrack(nearestAircraft.icao24);
+  }, [nearestAircraft?.icao24, ensureFullTrack]);
 
   const headingBeam = useMemo(() => {
     if (!location || heading == null) return null;
@@ -284,7 +299,7 @@ export default function SkyMap({
     }
 
     return {
-      // 通過済み: OpenSky で観測した実測点列のみ（出発空港からの大圏は使わない）
+      // 通過済み: OpenSky tracks + ライブ観測の実測点列
       flown,
       // 現在位置 → 目的地（残りは推定大圏のまま）
       remaining: greatCirclePoints(

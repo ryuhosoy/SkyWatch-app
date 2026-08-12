@@ -82,6 +82,26 @@ export interface OpenSkyResponse {
   states: OpenSkyState[] | null;
 }
 
+/** OpenSky /tracks/all の waypoint: [time, lat, lon, baro_alt, true_track, on_ground] */
+export type OpenSkyTrackWaypoint = [
+  number,
+  number | null,
+  number | null,
+  number | null,
+  number | null,
+  boolean,
+];
+
+export interface OpenSkyTrackResponse {
+  icao24: string;
+  startTime: number;
+  endTime: number;
+  /** API 側の typo（calllsign）もあるため両方許容 */
+  callsign?: string | null;
+  calllsign?: string | null;
+  path: OpenSkyTrackWaypoint[];
+}
+
 export interface UseAircraftOverheadReturn {
   location: Coordinates | null;
   /** 端末の向き（真北からの度数）。未取得時は null */

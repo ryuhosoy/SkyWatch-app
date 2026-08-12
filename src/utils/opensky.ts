@@ -1,4 +1,10 @@
-import type { Aircraft, OpenSkyResponse, OpenSkyState } from '../types';
+import type {
+  Aircraft,
+  Coordinates,
+  OpenSkyResponse,
+  OpenSkyState,
+  OpenSkyTrackResponse,
+} from '../types';
 import { t, isJapanese } from '../i18n';
 import { enrichAircraftWithRoutes } from './adsbdb';
 import { fetchOpenSkyWithAuth } from './openskyAuth';
@@ -165,4 +171,41 @@ export async function fetchAircraftOverhead(
   } catch {
     return aircraft;
   }
+}
+
+/**
+ * 当該便のライブ軌跡（出発〜現在までの waypoints）を取得する。
+ * 軌跡が無い / 404 のときは null。
+ */
+export async function fetchAircraftTrack(
+  icao24: string,
+): Promise<Coordinates[] | null> {
+  const id = icao24.trim().toLowerCase();
+  if (!id) return null;
+
+  const url = `${OPENSKY_BASE}/tracks/all?icao24=${encodeURIComponent(id)}&time=0`;
+  const response = await fetchOpenSkyWithAuth(url);
+
+  if (response.status === 404) {
+    return null;
+  }
+  if (!response.ok) {
+    throw new Error(`OpenSky track API error: ${response.status}`);
+  }
+
+  const data = (await response.json()) as OpenSkyTrackResponse;
+  if (!data.path || data.path.length === 0) {
+    return null;
+  }
+
+  const points: Coordinates[] = [];
+  for (const waypoint of data.path) {
+    const latitude = waypoint[1];
+    const longitude = waypoint[2];
+    if (latitude == null || longitude == null) continue;
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
+    points.push({ latitude, longitude });
+  }
+
+  return points.length >= 2 ? points : null;
 }

@@ -51,6 +51,8 @@ interface Props {
   aircraft: Aircraft[];
   /** 観測済みの実測軌跡（通過済み経路の描画用） */
   trackHistory?: AircraftTrackHistory;
+  /** /tracks/all 取得済みの機体。過去経路の本表示はこれがあるまで出さない */
+  fullTrackIcaos?: ReadonlySet<string>;
   /** 選択機体などの出発〜現在までの全軌跡を OpenSky から埋める */
   ensureFullTrack?: (icao24: string) => Promise<void>;
   loading?: boolean;
@@ -227,6 +229,7 @@ export default function SkyMap({
   heading = null,
   aircraft,
   trackHistory,
+  fullTrackIcaos,
   ensureFullTrack,
   loading,
   onSelectionChange,
@@ -314,9 +317,15 @@ export default function SkyMap({
       return null;
     }
 
+    const icao = selectedAircraft.icao24.toLowerCase();
+    // ライブ点だけの短い線では出さない。/tracks/all が来るまで点線も待つ
+    if (!fullTrackIcaos?.has(icao)) {
+      return null;
+    }
+
     const planeLat = selectedAircraft.latitude;
     const planeLon = selectedAircraft.longitude;
-    const tracked = trackHistory?.get(selectedAircraft.icao24.toLowerCase());
+    const tracked = trackHistory?.get(icao);
     const flown =
       tracked != null && tracked.length >= 2
         ? tracked.map((p) => ({
@@ -345,6 +354,11 @@ export default function SkyMap({
       }
     }
 
+    // 過去経路がまだ描けないうちは、行き先の点線も出さない
+    if (flown.length < 2) {
+      return null;
+    }
+
     return {
       // 通過済み: OpenSky tracks + ライブ観測の実測点列
       flown,
@@ -366,6 +380,7 @@ export default function SkyMap({
     selectedAircraft?.longitude,
     selectedAircraft?.icao24,
     trackHistory,
+    fullTrackIcaos,
   ]);
 
   const selectedRouteArrows = useMemo(() => {

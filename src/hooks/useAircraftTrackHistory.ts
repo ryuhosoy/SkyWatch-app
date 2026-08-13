@@ -56,13 +56,19 @@ function seedFromRemote(seeded: Coordinates[]): Coordinates[] {
 
 export function useAircraftTrackHistory(aircraft: Aircraft[]): {
   tracks: AircraftTrackHistory;
+  /** /tracks/all の取得に成功した機体（過去経路の本表示用） */
+  fullTrackIcaos: ReadonlySet<string>;
   ensureFullTrack: (icao24: string) => Promise<void>;
 } {
   const tracksRef = useRef(new Map<string, Coordinates[]>());
   const lastSeenRef = useRef(new Map<string, number>());
   const seededRef = useRef(new Set<string>());
+  const fullTrackRef = useRef(new Set<string>());
   const inflightRef = useRef(new Map<string, Promise<void>>());
   const [tracks, setTracks] = useState<AircraftTrackHistory>(() => new Map());
+  const [fullTrackIcaos, setFullTrackIcaos] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
 
   useEffect(() => {
     const now = Date.now();
@@ -105,6 +111,9 @@ export function useAircraftTrackHistory(aircraft: Aircraft[]): {
       if (now - seenAt < STALE_AFTER_MS) continue;
       lastSeenRef.current.delete(key);
       seededRef.current.delete(key);
+      if (fullTrackRef.current.delete(key)) {
+        setFullTrackIcaos(new Set(fullTrackRef.current));
+      }
       if (tracksRef.current.delete(key)) {
         changed = true;
       }
@@ -137,6 +146,8 @@ export function useAircraftTrackHistory(aircraft: Aircraft[]): {
         // tracks API の点だけ使う（取得前の states 蓄積は捨てる）
         tracksRef.current.set(key, seedFromRemote(remote));
         seededRef.current.add(key);
+        fullTrackRef.current.add(key);
+        setFullTrackIcaos(new Set(fullTrackRef.current));
         setTracks(new Map(tracksRef.current));
       } catch {
         // 一時的な失敗は seeded にしない（次回選択で再試行）
@@ -149,5 +160,5 @@ export function useAircraftTrackHistory(aircraft: Aircraft[]): {
     await promise;
   }, []);
 
-  return { tracks, ensureFullTrack };
+  return { tracks, fullTrackIcaos, ensureFullTrack };
 }

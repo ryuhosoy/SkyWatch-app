@@ -38,7 +38,8 @@ export default function MainScreen(): React.JSX.Element {
 
   useReapproachNotifications(aircraft, permissionGranted);
 
-  const { tracks: trackHistory, ensureFullTrack } = useAircraftTrackHistory(aircraft);
+  const { tracks: trackHistory, fullTrackIcaos, ensureFullTrack } =
+    useAircraftTrackHistory(aircraft);
   const [aircraftSelected, setAircraftSelected] = useState(false);
 
   const blinkAnim = useRef(new Animated.Value(1)).current;
@@ -85,6 +86,7 @@ export default function MainScreen(): React.JSX.Element {
           heading={heading}
           aircraft={aircraft}
           trackHistory={trackHistory}
+          fullTrackIcaos={fullTrackIcaos}
           ensureFullTrack={ensureFullTrack}
           loading={loading}
           onSelectionChange={setAircraftSelected}

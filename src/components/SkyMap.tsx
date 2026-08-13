@@ -89,6 +89,8 @@ function AircraftMarker({
       }}
       anchor={{ x: 0.5, y: 0.5 }}
       flat
+      // CSS transform ではなく Marker.rotation を使うと、地図回転時も真北基準の機首を維持する
+      rotation={headingDeg}
       tracksViewChanges={tracksViewChanges}
       onPress={(e) => {
         e.stopPropagation();
@@ -96,17 +98,16 @@ function AircraftMarker({
       }}
     >
       <View style={styles.markerWrap}>
-        <View
-          style={[
-            styles.planeRotate,
-            isSelected && styles.planeSelected,
-            { transform: [{ rotate: `${headingDeg}deg` }] },
-          ]}
-        >
+        <View style={[styles.planeRotate, isSelected && styles.planeSelected]}>
           <MaterialIcons name="flight" size={22} color={color} />
         </View>
         {aircraft.flightNumber !== '----' ? (
-          <View style={[styles.labelPill, { borderColor: color }]}>
+          <View
+            style={[
+              styles.labelPill,
+              { borderColor: color, transform: [{ rotate: `${-headingDeg}deg` }] },
+            ]}
+          >
             <Text style={[styles.labelText, { color }]} numberOfLines={1}>
               {aircraft.flightNumber}
             </Text>

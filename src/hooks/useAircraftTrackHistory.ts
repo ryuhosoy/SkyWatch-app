@@ -49,27 +49,9 @@ function trimTrack(points: Coordinates[]): Coordinates[] {
   return points.slice(points.length - MAX_POINTS_PER_AIRCRAFT);
 }
 
-/** API 軌跡をベースに、既存のライブ点で末尾を伸ばす */
-function mergeSeedWithLive(
-  seeded: Coordinates[],
-  live: Coordinates[] | undefined,
-): Coordinates[] {
-  const base = simplifyTrack(seeded, SEED_MIN_POINT_DISTANCE_M);
-  if (!live || live.length === 0) {
-    return trimTrack(base);
-  }
-
-  const merged = [...base];
-  for (const point of live) {
-    const last = merged[merged.length - 1];
-    const distM =
-      haversineKm(last.latitude, last.longitude, point.latitude, point.longitude) *
-      1000;
-    if (distM >= MIN_POINT_DISTANCE_M) {
-      merged.push(point);
-    }
-  }
-  return trimTrack(merged);
+/** API 軌跡を間引いて保存する（ライブ点は混ぜない） */
+function seedFromRemote(seeded: Coordinates[]): Coordinates[] {
+  return trimTrack(simplifyTrack(seeded, SEED_MIN_POINT_DISTANCE_M));
 }
 
 export function useAircraftTrackHistory(aircraft: Aircraft[]): {
@@ -146,14 +128,14 @@ export function useAircraftTrackHistory(aircraft: Aircraft[]): {
     const promise = (async () => {
       try {
         const remote = await fetchAircraftTrack(key);
-        // 404 / 空は再取得しない（ライブ点のみで継続）
+        // 404 / 空は再取得しない
         if (remote == null) {
           seededRef.current.add(key);
           return;
         }
 
-        const live = tracksRef.current.get(key);
-        tracksRef.current.set(key, mergeSeedWithLive(remote, live));
+        // tracks API の点だけ使う（取得前の states 蓄積は捨てる）
+        tracksRef.current.set(key, seedFromRemote(remote));
         seededRef.current.add(key);
         setTracks(new Map(tracksRef.current));
       } catch {

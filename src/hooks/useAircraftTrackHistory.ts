@@ -11,6 +11,10 @@ const SEED_MIN_POINT_DISTANCE_M = 250;
 const MAX_POINTS_PER_AIRCRAFT = 800;
 /** 受信から消えた機体の履歴を捨てるまでの時間 */
 const STALE_AFTER_MS = 10 * 60_000;
+/** 地図表示上限と揃えて事前キャッシュする機数 */
+const MAX_PREFETCH_AIRCRAFT = 30;
+/** /tracks/all 同時取得数（429 回避） */
+const PREFETCH_CONCURRENCY = 2;
 
 export type AircraftTrackHistory = ReadonlyMap<string, readonly Coordinates[]>;
 
@@ -65,6 +69,8 @@ export function useAircraftTrackHistory(aircraft: Aircraft[]): {
   const seededRef = useRef(new Set<string>());
   const fullTrackRef = useRef(new Set<string>());
   const inflightRef = useRef(new Map<string, Promise<void>>());
+  const prefetchQueueRef = useRef<string[]>([]);
+  const prefetchActiveRef = useRef(0);
   const [tracks, setTracks] = useState<AircraftTrackHistory>(() => new Map());
   const [fullTrackIcaos, setFullTrackIcaos] = useState<ReadonlySet<string>>(
     () => new Set(),
@@ -159,6 +165,43 @@ export function useAircraftTrackHistory(aircraft: Aircraft[]): {
     inflightRef.current.set(key, promise);
     await promise;
   }, []);
+
+  const pumpPrefetch = useCallback(() => {
+    while (
+      prefetchActiveRef.current < PREFETCH_CONCURRENCY &&
+      prefetchQueueRef.current.length > 0
+    ) {
+      const key = prefetchQueueRef.current.shift();
+      if (!key || seededRef.current.has(key) || inflightRef.current.has(key)) {
+        continue;
+      }
+      prefetchActiveRef.current += 1;
+      void ensureFullTrack(key).finally(() => {
+        prefetchActiveRef.current -= 1;
+        pumpPrefetch();
+      });
+    }
+  }, [ensureFullTrack]);
+
+  useEffect(() => {
+    const needed: string[] = [];
+    const seen = new Set<string>();
+    for (const ac of aircraft.slice(0, MAX_PREFETCH_AIRCRAFT)) {
+      const key = ac.icao24.toLowerCase();
+      if (
+        !key ||
+        seededRef.current.has(key) ||
+        inflightRef.current.has(key) ||
+        seen.has(key)
+      ) {
+        continue;
+      }
+      needed.push(key);
+      seen.add(key);
+    }
+    prefetchQueueRef.current = needed;
+    pumpPrefetch();
+  }, [aircraft, pumpPrefetch]);
 
   return { tracks, fullTrackIcaos, ensureFullTrack };
 }

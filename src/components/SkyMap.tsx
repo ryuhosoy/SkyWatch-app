@@ -290,16 +290,10 @@ export default function SkyMap({
   const showingNearestCard = selectedAircraft == null || isNearestSelected;
 
   useEffect(() => {
-    if (!ensureFullTrack) return;
-    if (selectedIcao24) {
-      void ensureFullTrack(selectedIcao24);
-    }
+    if (!ensureFullTrack || !selectedIcao24) return;
+    // 選択機はプリフェッチ待ちにせず優先取得
+    void ensureFullTrack(selectedIcao24);
   }, [selectedIcao24, ensureFullTrack]);
-
-  useEffect(() => {
-    if (!ensureFullTrack || !nearestAircraft) return;
-    void ensureFullTrack(nearestAircraft.icao24);
-  }, [nearestAircraft?.icao24, ensureFullTrack]);
 
   const headingBeam = useMemo(() => {
     if (!location || heading == null) return null;

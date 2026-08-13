@@ -1,14 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Aircraft, Coordinates } from '../types';
-import { haversineKm } from '../utils/geo';
 import { fetchAircraftTrack } from '../utils/opensky';
 
-/** ほぼ同じ地点の連続追記を避ける */
-const MIN_POINT_DISTANCE_M = 80;
-/** OpenSky tracks を間引く距離（長距離便の点過多対策） */
-const SEED_MIN_POINT_DISTANCE_M = 250;
-/** 1機あたりの上限（メモリ・描画負荷） */
-const MAX_POINTS_PER_AIRCRAFT = 800;
 /** 受信から消えた機体の履歴を捨てるまでの時間 */
 const STALE_AFTER_MS = 10 * 60_000;
 /** 地図表示上限と揃えて事前キャッシュする機数 */
@@ -17,46 +10,6 @@ const MAX_PREFETCH_AIRCRAFT = 30;
 const PREFETCH_CONCURRENCY = 2;
 
 export type AircraftTrackHistory = ReadonlyMap<string, readonly Coordinates[]>;
-
-function simplifyTrack(
-  points: Coordinates[],
-  minDistanceM: number,
-): Coordinates[] {
-  if (points.length === 0) return [];
-
-  const out: Coordinates[] = [points[0]];
-  for (let i = 1; i < points.length; i++) {
-    const prev = out[out.length - 1];
-    const next = points[i];
-    const distM =
-      haversineKm(prev.latitude, prev.longitude, next.latitude, next.longitude) *
-      1000;
-    if (distM >= minDistanceM) {
-      out.push(next);
-    }
-  }
-
-  const last = points[points.length - 1];
-  const outLast = out[out.length - 1];
-  if (
-    outLast.latitude !== last.latitude ||
-    outLast.longitude !== last.longitude
-  ) {
-    out.push(last);
-  }
-
-  return out;
-}
-
-function trimTrack(points: Coordinates[]): Coordinates[] {
-  if (points.length <= MAX_POINTS_PER_AIRCRAFT) return points;
-  return points.slice(points.length - MAX_POINTS_PER_AIRCRAFT);
-}
-
-/** API 軌跡を間引いて保存する（ライブ点は混ぜない） */
-function seedFromRemote(seeded: Coordinates[]): Coordinates[] {
-  return trimTrack(simplifyTrack(seeded, SEED_MIN_POINT_DISTANCE_M));
-}
 
 export function useAircraftTrackHistory(aircraft: Aircraft[]): {
   tracks: AircraftTrackHistory;
@@ -98,17 +51,11 @@ export function useAircraftTrackHistory(aircraft: Aircraft[]): {
       }
 
       const last = existing[existing.length - 1];
-      const distM =
-        haversineKm(last.latitude, last.longitude, point.latitude, point.longitude) *
-        1000;
-      if (distM < MIN_POINT_DISTANCE_M) {
+      if (last.latitude === point.latitude && last.longitude === point.longitude) {
         continue;
       }
 
       existing.push(point);
-      if (existing.length > MAX_POINTS_PER_AIRCRAFT) {
-        existing.splice(0, existing.length - MAX_POINTS_PER_AIRCRAFT);
-      }
       changed = true;
     }
 
@@ -149,8 +96,8 @@ export function useAircraftTrackHistory(aircraft: Aircraft[]): {
           return;
         }
 
-        // tracks API の点だけ使う（取得前の states 蓄積は捨てる）
-        tracksRef.current.set(key, seedFromRemote(remote));
+        // tracks API の点をすべて使う
+        tracksRef.current.set(key, remote.map((p) => ({ ...p })));
         seededRef.current.add(key);
         fullTrackRef.current.add(key);
         setFullTrackIcaos(new Set(fullTrackRef.current));

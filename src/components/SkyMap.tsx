@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -62,16 +62,21 @@ function AircraftMarker({
   aircraft,
   isClosest,
   isSelected,
+  mapHeading,
   onPress,
 }: {
   aircraft: Aircraft;
   isClosest: boolean;
   isSelected: boolean;
+  /** 地図カメラの方位（真北=0、時計回り）。画面上端が北なら 0 */
+  mapHeading: number;
   onPress: () => void;
 }): React.JSX.Element {
   const color = isSelected ? COLORS.white : isClosest ? COLORS.cyan : COLORS.orange;
   const headingDeg = aircraft.heading ?? 0;
-  const renderKey = `${aircraft.latitude.toFixed(6)}:${aircraft.longitude.toFixed(6)}:${headingDeg.toFixed(1)}:${isSelected}`;
+  // カスタム Marker は画面基準で描画されるので、地図回転分を差し引いて実方位を保つ
+  const rotationDeg = headingDeg - mapHeading;
+  const renderKey = `${aircraft.latitude.toFixed(6)}:${aircraft.longitude.toFixed(6)}:${headingDeg.toFixed(1)}:${mapHeading.toFixed(1)}:${isSelected}`;
 
   const [tracksViewChanges, setTracksViewChanges] = useState(true);
 
@@ -88,9 +93,6 @@ function AircraftMarker({
         longitude: aircraft.longitude,
       }}
       anchor={{ x: 0.5, y: 0.5 }}
-      flat
-      // CSS transform ではなく Marker.rotation を使うと、地図回転時も真北基準の機首を維持する
-      rotation={headingDeg}
       tracksViewChanges={tracksViewChanges}
       onPress={(e) => {
         e.stopPropagation();
@@ -98,16 +100,17 @@ function AircraftMarker({
       }}
     >
       <View style={styles.markerWrap}>
-        <View style={[styles.planeRotate, isSelected && styles.planeSelected]}>
+        <View
+          style={[
+            styles.planeRotate,
+            isSelected && styles.planeSelected,
+            { transform: [{ rotate: `${rotationDeg}deg` }] },
+          ]}
+        >
           <MaterialIcons name="flight" size={22} color={color} />
         </View>
         {aircraft.flightNumber !== '----' ? (
-          <View
-            style={[
-              styles.labelPill,
-              { borderColor: color, transform: [{ rotate: `${-headingDeg}deg` }] },
-            ]}
-          >
+          <View style={[styles.labelPill, { borderColor: color }]}>
             <Text style={[styles.labelText, { color }]} numberOfLines={1}>
               {aircraft.flightNumber}
             </Text>
@@ -228,10 +231,28 @@ export default function SkyMap({
   loading,
   onSelectionChange,
 }: Props): React.JSX.Element {
+  const mapRef = useRef<MapView>(null);
   const regionRef = useRef<Region | null>(null);
+  const lastMapHeadingRef = useRef(0);
+  const headingSyncAtRef = useRef(0);
   const [selectedIcao24, setSelectedIcao24] = useState<string | null>(null);
   const [popupNonce, setPopupNonce] = useState(0);
   const [latitudeDelta, setLatitudeDelta] = useState(DEFAULT_DELTA);
+  const [mapHeading, setMapHeading] = useState(0);
+
+  const syncMapHeading = useCallback(() => {
+    const now = Date.now();
+    if (now - headingSyncAtRef.current < 50) return;
+    headingSyncAtRef.current = now;
+    void mapRef.current?.getCamera().then((camera) => {
+      const raw = camera?.heading;
+      if (raw == null || !Number.isFinite(raw)) return;
+      const next = ((raw % 360) + 360) % 360;
+      if (shortestHeadingDiff(next, lastMapHeadingRef.current) < 1) return;
+      lastMapHeadingRef.current = next;
+      setMapHeading(next);
+    });
+  }, []);
 
   const displayAircraft = useMemo(() => {
     return aircraft.map((ac) => {
@@ -464,6 +485,7 @@ export default function SkyMap({
   return (
     <View style={styles.container}>
       <MapView
+        ref={mapRef}
         style={styles.map}
         provider={PROVIDER_DEFAULT}
         initialRegion={initialRegion}
@@ -473,9 +495,13 @@ export default function SkyMap({
         userInterfaceStyle="dark"
         mapType="standard"
         onPress={() => handleSelectAircraft(null)}
+        onRegionChange={() => {
+          syncMapHeading();
+        }}
         onRegionChangeComplete={(region) => {
           regionRef.current = region;
           setLatitudeDelta(region.latitudeDelta);
+          syncMapHeading();
         }}
       >
         {headingBeam ? (
@@ -544,6 +570,7 @@ export default function SkyMap({
             aircraft={ac}
             isClosest={index === 0}
             isSelected={ac.icao24 === selectedIcao24 && !isNearestSelected}
+            mapHeading={mapHeading}
             onPress={() => handleSelectAircraft(ac.icao24)}
           />
         ))}

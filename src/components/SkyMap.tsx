@@ -35,6 +35,7 @@ const COLORS = {
   panelBorder: '#1A3A5C',
   cyan: '#00D4FF',
   orange: '#FF6B35',
+  ground: '#9AA8B5',
   white: '#E8F4F8',
   muted: '#4A7A9B',
   text: '#B8D4E8',
@@ -74,11 +75,17 @@ function AircraftMarker({
   mapHeading: number;
   onPress: () => void;
 }): React.JSX.Element {
-  const color = isSelected ? COLORS.white : isClosest ? COLORS.cyan : COLORS.orange;
+  const color = isSelected
+    ? COLORS.white
+    : isClosest
+      ? COLORS.cyan
+      : aircraft.onGround
+        ? COLORS.ground
+        : COLORS.orange;
   const headingDeg = aircraft.heading ?? 0;
   // カスタム Marker は画面基準で描画されるので、地図回転分を差し引いて実方位を保つ
   const rotationDeg = headingDeg - mapHeading;
-  const renderKey = `${aircraft.latitude.toFixed(6)}:${aircraft.longitude.toFixed(6)}:${headingDeg.toFixed(1)}:${mapHeading.toFixed(1)}:${isSelected}`;
+  const renderKey = `${aircraft.latitude.toFixed(6)}:${aircraft.longitude.toFixed(6)}:${headingDeg.toFixed(1)}:${mapHeading.toFixed(1)}:${isSelected}:${aircraft.onGround}`;
 
   const [tracksViewChanges, setTracksViewChanges] = useState(true);
 
@@ -594,7 +601,11 @@ export default function SkyMap({
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: COLORS.orange }]} />
-              <Text style={styles.legendText}>{t('legendAircraft')}</Text>
+              <Text style={styles.legendText}>{t('legendAirborne')}</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: COLORS.ground }]} />
+              <Text style={styles.legendText}>{t('legendGround')}</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: '#4285F4' }]} />
@@ -732,8 +743,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     left: 8,
+    right: 8,
     flexDirection: 'row',
-    gap: 10,
+    flexWrap: 'wrap',
+    gap: 8,
     backgroundColor: 'rgba(6, 11, 24, 0.8)',
     borderRadius: 8,
     paddingHorizontal: 8,

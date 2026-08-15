@@ -38,12 +38,6 @@
       ],
       "expo-font",
       [
-        "expo-tracking-transparency",
-        {
-          "userTrackingPermission": "This identifier will be used to deliver personalized ads to you."
-        }
-      ],
-      [
         "react-native-google-mobile-ads",
         {
           "iosAppId": "ca-app-pub-4792257124590677~9320409633",

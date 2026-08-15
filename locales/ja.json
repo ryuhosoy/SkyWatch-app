@@ -3,8 +3,7 @@
     "CFBundleDisplayName": "Flight Overhead",
     "NSLocationWhenInUseUsageDescription": "頭上を飛ぶ航空機を検索するために現在地が必要です。",
     "NSLocationAlwaysUsageDescription": "バックグラウンドでも航空機を追跡するために現在地が必要です。",
-    "NSLocationAlwaysAndWhenInUseUsageDescription": "頭上を飛ぶ航空機の検索・追跡のために現在地が必要です。",
-    "NSUserTrackingUsageDescription": "この識別子は、あなたに合わせた広告を配信するために使用されます。"
+    "NSLocationAlwaysAndWhenInUseUsageDescription": "頭上を飛ぶ航空機の検索・追跡のために現在地が必要です。"
   },
   "android": {
     "app_name": "Flight Overhead"

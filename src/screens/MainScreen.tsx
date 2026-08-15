@@ -13,6 +13,7 @@ import { useAircraftTrackHistory } from '../hooks/useAircraftTrackHistory';
 import { useReapproachNotifications } from '../hooks/useReapproachNotifications';
 import { t } from '../i18n';
 import SkyMap from '../components/SkyMap';
+import AdBanner from '../components/AdBanner';
 
 const COLORS = {
   bg: '#060B18',
@@ -25,7 +26,11 @@ const COLORS = {
   text: '#B8D4E8',
 } as const;
 
-export default function MainScreen(): React.JSX.Element {
+type MainScreenProps = {
+  adsReady?: boolean;
+};
+
+export default function MainScreen({ adsReady = false }: MainScreenProps): React.JSX.Element {
   const {
     location,
     heading,
@@ -118,6 +123,8 @@ export default function MainScreen(): React.JSX.Element {
           </View>
         ) : null}
       </View>
+
+      {adsReady ? <AdBanner /> : null}
     </View>
   );
 }

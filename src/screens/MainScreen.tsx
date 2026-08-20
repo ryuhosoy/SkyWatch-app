@@ -5,7 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Animated,
-  Platform,
+  SafeAreaView,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useAircraftOverhead } from '../hooks/useAircraftOverhead';
@@ -21,9 +21,7 @@ const COLORS = {
   cyan: '#00D4FF',
   cyanDim: 'rgba(0, 212, 255, 0.1)',
   orange: '#FF6B35',
-  white: '#E8F4F8',
   muted: '#4A7A9B',
-  text: '#B8D4E8',
 } as const;
 
 type MainScreenProps = {
@@ -64,26 +62,11 @@ export default function MainScreen({ adsReady = false }: MainScreenProps): React
     <View style={styles.root}>
       <StatusBar style="light" />
 
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.logoText}>
-            Flight <Text style={styles.logoAccent}>Overhead</Text>
-          </Text>
-          <Text style={styles.tagline}>{t('tagline')}</Text>
-        </View>
-        <View style={styles.headerRight}>
-          <Animated.View
-            style={[
-              styles.statusDot,
-              {
-                opacity: loading ? blinkAnim : 1,
-                backgroundColor: loading ? COLORS.orange : COLORS.cyan,
-              },
-            ]}
-          />
-          <Text style={styles.statusText}>{loading ? 'SCANNING' : 'LIVE'}</Text>
-        </View>
-      </View>
+      {adsReady ? (
+        <AdBanner placement="top" />
+      ) : (
+        <SafeAreaView style={styles.topInset} />
+      )}
 
       <View style={styles.mapSection}>
         <SkyMap
@@ -124,7 +107,7 @@ export default function MainScreen({ adsReady = false }: MainScreenProps): React
         ) : null}
       </View>
 
-      {adsReady ? <AdBanner /> : null}
+      {adsReady ? <AdBanner placement="bottom" /> : null}
     </View>
   );
 }
@@ -134,47 +117,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.bg,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    paddingTop: Platform.OS === 'ios' ? 56 : 40,
-    paddingBottom: 12,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.panelBorder,
-  },
-  logoText: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: COLORS.white,
-    letterSpacing: 1,
-    fontFamily: 'monospace',
-  },
-  logoAccent: {
-    color: COLORS.cyan,
-  },
-  tagline: {
-    fontSize: 11,
-    color: COLORS.muted,
-    letterSpacing: 1,
-    marginTop: 2,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  statusText: {
-    fontSize: 11,
-    color: COLORS.muted,
-    letterSpacing: 2,
-    fontFamily: 'monospace',
+  topInset: {
+    backgroundColor: COLORS.bg,
   },
   mapSection: {
     flex: 1,

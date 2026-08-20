@@ -5,7 +5,13 @@ import { getBannerAdUnitId } from '../constants/ads';
 
 const BANNER_KEYWORDS = ['aviation', 'aircraft', 'flight', 'travel'];
 
-export default function AdBanner(): React.JSX.Element | null {
+type Props = {
+  placement?: 'top' | 'bottom';
+};
+
+export default function AdBanner({
+  placement = 'bottom',
+}: Props): React.JSX.Element | null {
   const bannerRef = useRef<BannerAd>(null);
   const [failed, setFailed] = useState(false);
   const unitId = getBannerAdUnitId();
@@ -18,7 +24,8 @@ export default function AdBanner(): React.JSX.Element | null {
   });
 
   if (failed) {
-    return null;
+    // 上部はノッチ余白だけ残す。下部は潰して地図を広げる
+    return placement === 'top' ? <SafeAreaView style={styles.wrap} /> : null;
   }
 
   return (

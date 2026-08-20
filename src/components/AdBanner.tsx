@@ -14,7 +14,7 @@ export default function AdBanner({
 }: Props): React.JSX.Element | null {
   const bannerRef = useRef<BannerAd>(null);
   const [failed, setFailed] = useState(false);
-  const unitId = getBannerAdUnitId();
+  const unitId = getBannerAdUnitId(placement);
 
   // iOS でバックグラウンドから戻ったとき、バナーが空になることがあるため再読み込み
   useForeground(() => {

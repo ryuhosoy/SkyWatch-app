@@ -293,8 +293,6 @@ export default function SkyMap({
     selectedAircraft != null &&
     nearestAircraft != null &&
     selectedAircraft.icao24 === nearestAircraft.icao24;
-  /** 最接近カードを出している（未選択 or 最接近をタップしただけ） */
-  const showingNearestCard = selectedAircraft == null || isNearestSelected;
 
   useEffect(() => {
     if (!ensureFullTrack || !selectedIcao24) return;
@@ -592,34 +590,32 @@ export default function SkyMap({
         ))}
       </MapView>
 
-      {showingNearestCard ? (
-        <>
-          <View style={styles.legend}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: COLORS.cyan }]} />
-              <Text style={styles.legendText}>{t('legendClosest')}</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: COLORS.orange }]} />
-              <Text style={styles.legendText}>{t('legendAirborne')}</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: COLORS.ground }]} />
-              <Text style={styles.legendText}>{t('legendGround')}</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#4285F4' }]} />
-              <Text style={styles.legendText}>{t('legendYou')}</Text>
-            </View>
+      {selectedAircraft == null || isNearestSelected ? (
+        <View style={styles.legend}>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: COLORS.cyan }]} />
+            <Text style={styles.legendText}>{t('legendClosest')}</Text>
           </View>
-          {nearestAircraft ? (
-            <AircraftPopup
-              key={`nearest-${nearestAircraft.icao24}-${popupNonce}`}
-              aircraft={nearestAircraft}
-              label={t('nearestAircraft')}
-            />
-          ) : null}
-        </>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: COLORS.orange }]} />
+            <Text style={styles.legendText}>{t('legendAirborne')}</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: COLORS.ground }]} />
+            <Text style={styles.legendText}>{t('legendGround')}</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: '#4285F4' }]} />
+            <Text style={styles.legendText}>{t('legendYou')}</Text>
+          </View>
+        </View>
+      ) : null}
+      {isNearestSelected ? (
+        <AircraftPopup
+          key={`nearest-${selectedAircraft.icao24}-${popupNonce}`}
+          aircraft={selectedAircraft}
+          label={t('nearestAircraft')}
+        />
       ) : selectedAircraft ? (
         <AircraftPopup
           key={`selected-${selectedAircraft.icao24}-${popupNonce}`}

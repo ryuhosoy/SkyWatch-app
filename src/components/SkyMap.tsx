@@ -198,39 +198,6 @@ function buildDirectionArrow(
   return [tip, left, right];
 }
 
-function UserLocationMarker({ location }: { location: Coordinates }): React.JSX.Element {
-  const [tracksViewChanges, setTracksViewChanges] = useState(true);
-  const coordinate = useMemo(
-    () => ({
-      latitude: location.latitude,
-      longitude: location.longitude,
-    }),
-    [location.latitude, location.longitude],
-  );
-
-  // 座標が変わるたびに一度だけ再描画を許可（Android でマーカーが固まる対策）
-  useEffect(() => {
-    setTracksViewChanges(true);
-    const timer = setTimeout(() => setTracksViewChanges(false), 300);
-    return () => clearTimeout(timer);
-  }, [location.latitude, location.longitude]);
-
-  return (
-    <Marker
-      coordinate={coordinate}
-      anchor={{ x: 0.5, y: 0.5 }}
-      tracksViewChanges={tracksViewChanges}
-      zIndex={1000}
-    >
-      <View style={styles.userMarker} pointerEvents="none">
-        <View style={styles.userDotOuter}>
-          <View style={styles.userDotInner} />
-        </View>
-      </View>
-    </Marker>
-  );
-}
-
 export default function SkyMap({
   location,
   heading = null,
@@ -522,7 +489,7 @@ export default function SkyMap({
         style={styles.map}
         provider={PROVIDER_DEFAULT}
         initialRegion={initialRegion}
-        showsUserLocation={false}
+        showsUserLocation
         showsMyLocationButton={false}
         showsCompass={false}
         userInterfaceStyle="dark"
@@ -602,7 +569,6 @@ export default function SkyMap({
             <MaterialIcons name="flag" size={10} color={COLORS.cyan} />
           </View>
         </Marker>
-        <UserLocationMarker location={location} />
         {mapAircraft.map((ac, index) => (
           <AircraftMarker
             key={ac.icao24}
@@ -696,28 +662,6 @@ const styles = StyleSheet.create({
   markerWrap: {
     alignItems: 'center',
     gap: 2,
-  },
-  userMarker: {
-    width: 24,
-    height: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  userDotOuter: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: 'rgba(66, 133, 244, 0.35)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.9)',
-  },
-  userDotInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#4285F4',
   },
   airportDot: {
     width: 14,

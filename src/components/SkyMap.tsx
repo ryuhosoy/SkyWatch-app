@@ -3,7 +3,7 @@ import {
   View,
   Text,
   StyleSheet,
-  Platform,
+  TouchableOpacity,
 } from 'react-native';
 import MapView, {
   Marker,
@@ -266,6 +266,21 @@ export default function SkyMap({
     });
   }, []);
 
+  const recenterOnUser = useCallback((): void => {
+    if (!location || mapRef.current == null) return;
+    const delta = regionRef.current?.latitudeDelta ?? latitudeDelta;
+    const lonDelta = regionRef.current?.longitudeDelta ?? delta;
+    mapRef.current.animateToRegion(
+      {
+        latitude: location.latitude,
+        longitude: location.longitude,
+        latitudeDelta: delta,
+        longitudeDelta: lonDelta,
+      },
+      350,
+    );
+  }, [location, latitudeDelta]);
+
   const displayAircraft = useMemo(() => {
     return aircraft.map((ac) => {
       const track = trackHistory?.get(ac.icao24.toLowerCase());
@@ -508,7 +523,7 @@ export default function SkyMap({
         provider={PROVIDER_DEFAULT}
         initialRegion={initialRegion}
         showsUserLocation={false}
-        showsMyLocationButton={Platform.OS === 'android'}
+        showsMyLocationButton={false}
         showsCompass={false}
         userInterfaceStyle="dark"
         mapType="standard"
@@ -599,6 +614,17 @@ export default function SkyMap({
           />
         ))}
       </MapView>
+
+      <TouchableOpacity
+        style={styles.recenterBtn}
+        onPress={recenterOnUser}
+        accessibilityRole="button"
+        accessibilityLabel={t('recenterLocation')}
+        activeOpacity={0.75}
+      >
+        <MaterialIcons name="my-location" size={24} color={COLORS.cyan} />
+        <Text style={styles.recenterBtnText}>{t('recenterLocationShort')}</Text>
+      </TouchableOpacity>
 
       {selectedAircraft == null || isNearestSelected ? (
         <View style={styles.legend}>
@@ -773,5 +799,30 @@ const styles = StyleSheet.create({
   legendText: {
     fontSize: 9,
     color: COLORS.muted,
+  },
+  recenterBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 24,
+    backgroundColor: 'rgba(6, 11, 24, 0.92)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 212, 255, 0.45)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  recenterBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.cyan,
+    letterSpacing: 0.3,
   },
 });

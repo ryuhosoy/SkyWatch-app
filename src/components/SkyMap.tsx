@@ -379,8 +379,8 @@ export default function SkyMap({
         }
       }
     } else {
-      // tracks 取得前 / 失敗時: 以前どおり出発地→現在地の大圏で必ず出す
-      flown = greatCirclePoints(depLat, depLon, planeLat, planeLon, 32);
+      // tracks 取得前 / 失敗時は通過済み経路を描かない
+      flown = [];
     }
 
     return {

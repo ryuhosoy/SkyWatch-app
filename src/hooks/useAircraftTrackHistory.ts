@@ -96,7 +96,7 @@ export function useAircraftTrackHistory(aircraft: Aircraft[]): {
           return;
         }
 
-        // tracks API の点をすべて使う
+        // tracks API の点をすべて使う（取得前の live 蓄積は置き換え）
         tracksRef.current.set(key, remote.map((p) => ({ ...p })));
         seededRef.current.add(key);
         fullTrackRef.current.add(key);

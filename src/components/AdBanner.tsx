@@ -1,43 +1,58 @@
-import React, { useRef, useState } from 'react';
-import { Platform, SafeAreaView, StyleSheet } from 'react-native';
-import { BannerAd, BannerAdSize, useForeground } from 'react-native-google-mobile-ads';
-import { getBannerAdUnitId } from '../constants/ads';
-
-const BANNER_KEYWORDS = ['aviation', 'aircraft', 'flight', 'travel'];
+import React, { useMemo } from 'react';
+import {
+  SafeAreaView,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from 'react-native';
+import {
+  getNativeAdCorner,
+  nativeCellWidth,
+  nativeColumnsForWidth,
+  NATIVE_CELL_HEIGHT,
+  type BannerPlacement,
+} from '../constants/ads';
+import CompactNativeAd from './CompactNativeAd';
 
 type Props = {
-  placement?: 'top' | 'bottom';
+  placement?: BannerPlacement;
 };
 
+/**
+ * 上部／下部帯: ネイティブ広告を整数幅で横いっぱいまで詰める。
+ * （バナーは使わない）
+ */
 export default function AdBanner({
   placement = 'bottom',
 }: Props): React.JSX.Element | null {
-  const bannerRef = useRef<BannerAd>(null);
-  const [failed, setFailed] = useState(false);
-  const unitId = getBannerAdUnitId(placement);
+  const { width: windowWidth } = useWindowDimensions();
 
-  // iOS でバックグラウンドから戻ったとき、バナーが空になることがあるため再読み込み
-  useForeground(() => {
-    if (Platform.OS === 'ios') {
-      bannerRef.current?.load();
-    }
-  });
+  const screenW = Math.floor(windowWidth);
+  const nativeCount = nativeColumnsForWidth(screenW);
+  const cellW = nativeCellWidth(screenW, nativeCount);
+  const rowW = cellW * nativeCount;
 
-  if (failed) {
-    // 上部はノッチ余白だけ残す。下部は潰して地図を広げる
-    return placement === 'top' ? <SafeAreaView style={styles.wrap} /> : null;
-  }
+  const nativeSlots = useMemo(
+    () =>
+      Array.from({ length: nativeCount }, (_, i) => ({
+        key: `${placement}-native-${i}`,
+        corner: getNativeAdCorner(placement, i, nativeCount),
+      })),
+    [placement, nativeCount],
+  );
 
   return (
     <SafeAreaView style={styles.wrap}>
-      <BannerAd
-        ref={bannerRef}
-        unitId={unitId}
-        size={BannerAdSize.INLINE_ADAPTIVE_BANNER}
-        maxHeight={50}
-        requestOptions={{ keywords: BANNER_KEYWORDS }}
-        onAdFailedToLoad={() => setFailed(true)}
-      />
+      <View style={[styles.nativeRow, { width: rowW }]}>
+        {nativeSlots.map((slot) => (
+          <CompactNativeAd
+            key={slot.key}
+            slotKey={slot.key}
+            corner={slot.corner}
+            width={cellW}
+          />
+        ))}
+      </View>
     </SafeAreaView>
   );
 }
@@ -47,5 +62,9 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: '#060B18',
     alignItems: 'center',
+  },
+  nativeRow: {
+    height: Math.floor(NATIVE_CELL_HEIGHT),
+    flexDirection: 'row',
   },
 });

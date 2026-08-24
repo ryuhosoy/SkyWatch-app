@@ -16,7 +16,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import type { Aircraft, Coordinates } from '../types';
 import type { AircraftTrackHistory } from '../hooks/useAircraftTrackHistory';
 import { t } from '../i18n';
-import { alignToTrackTip, bearingDeg, greatCirclePoints, moveByHeading, shortestHeadingDiff } from '../utils/geo';
+import { alignToTrackTip, bearingDeg, greatCirclePoints, haversineKm, moveByHeading, shortestHeadingDiff } from '../utils/geo';
 import AircraftPopup from './AircraftPopup';
 
 /** Material "flight" はデフォルトで真北（上）向き */
@@ -249,6 +249,8 @@ export default function SkyMap({
   const [popupNonce, setPopupNonce] = useState(0);
   const [latitudeDelta, setLatitudeDelta] = useState(DEFAULT_DELTA);
   const [mapHeading, setMapHeading] = useState(0);
+  /** Marker タップ後に MapView onPress が続いて選択解除されるのを防ぐ */
+  const ignoreMapPressRef = useRef(false);
 
   const syncMapHeading = useCallback(() => {
     const now = Date.now();
@@ -317,24 +319,34 @@ export default function SkyMap({
     }
 
     const icao = selectedAircraft.icao24.toLowerCase();
-    // ライブ点だけの短い線では出さない。/tracks/all が来るまで点線も待つ
-    if (!fullTrackIcaos?.has(icao)) {
-      return null;
-    }
-
     const planeLat = selectedAircraft.latitude;
     const planeLon = selectedAircraft.longitude;
-    const tracked = trackHistory?.get(icao);
-    const flown =
-      tracked != null && tracked.length >= 2
-        ? tracked.map((p) => ({
-            latitude: p.latitude,
-            longitude: p.longitude,
-          }))
-        : [];
+    const depLat = selectedAircraft.departureLatitude;
+    const depLon = selectedAircraft.departureLongitude;
+    const arrLat = selectedAircraft.arrivalLatitude;
+    const arrLon = selectedAircraft.arrivalLongitude;
 
-    // 現在位置が軌跡より先なら末尾に足す。後ろなら付け足さない（戻り線を防ぐ）
-    if (flown.length >= 1) {
+    const hasFullTrack = fullTrackIcaos?.has(icao) === true;
+    const tracked = trackHistory?.get(icao);
+
+    let flown: { latitude: number; longitude: number }[];
+
+    if (hasFullTrack && tracked != null && tracked.length >= 2) {
+      // 本経路: OpenSky /tracks/all の実測
+      flown = tracked.map((p) => ({
+        latitude: p.latitude,
+        longitude: p.longitude,
+      }));
+
+      // 出発空港から離れて始まっていたら空港までつなぐ
+      const first = flown[0];
+      const gapM = haversineKm(depLat, depLon, first.latitude, first.longitude) * 1000;
+      if (gapM > 400) {
+        const toFirst = greatCirclePoints(depLat, depLon, first.latitude, first.longitude, 16);
+        flown.unshift(...toFirst.slice(0, -1));
+      }
+
+      // 現在位置が軌跡より先なら末尾に足す
       const last = flown[flown.length - 1];
       if (last.latitude !== planeLat || last.longitude !== planeLon) {
         const prev = flown.length >= 2 ? flown[flown.length - 2] : null;
@@ -351,24 +363,14 @@ export default function SkyMap({
           flown.push({ latitude: planeLat, longitude: planeLon });
         }
       }
-    }
-
-    // 過去経路がまだ描けないうちは、行き先の点線も出さない
-    if (flown.length < 2) {
-      return null;
+    } else {
+      // tracks 取得前 / 失敗時: 以前どおり出発地→現在地の大圏で必ず出す
+      flown = greatCirclePoints(depLat, depLon, planeLat, planeLon, 32);
     }
 
     return {
-      // 通過済み: OpenSky tracks + ライブ観測の実測点列
       flown,
-      // 現在位置 → 目的地（残りは推定大圏のまま）
-      remaining: greatCirclePoints(
-        planeLat,
-        planeLon,
-        selectedAircraft.arrivalLatitude,
-        selectedAircraft.arrivalLongitude,
-        32,
-      ),
+      remaining: greatCirclePoints(planeLat, planeLon, arrLat, arrLon, 32),
     };
   }, [
     selectedAircraft?.departureLatitude,
@@ -378,6 +380,7 @@ export default function SkyMap({
     selectedAircraft?.latitude,
     selectedAircraft?.longitude,
     selectedAircraft?.icao24,
+    selectedAircraft?.heading,
     trackHistory,
     fullTrackIcaos,
   ]);
@@ -453,6 +456,7 @@ export default function SkyMap({
 
   const handleSelectAircraft = (icao24: string | null): void => {
     if (icao24 != null) {
+      ignoreMapPressRef.current = true;
       // 同じ機体の再タップでもポップアップを最初から表示し直す
       setPopupNonce((n) => n + 1);
     }
@@ -508,7 +512,13 @@ export default function SkyMap({
         showsCompass={false}
         userInterfaceStyle="dark"
         mapType="standard"
-        onPress={() => handleSelectAircraft(null)}
+        onPress={() => {
+          if (ignoreMapPressRef.current) {
+            ignoreMapPressRef.current = false;
+            return;
+          }
+          handleSelectAircraft(null);
+        }}
         onRegionChange={() => {
           syncMapHeading();
         }}

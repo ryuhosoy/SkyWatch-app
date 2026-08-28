@@ -1,0 +1,46 @@
+diff --git a/node_modules/react-native-google-mobile-ads/android/src/main/java/io/invertase/googlemobileads/ReactNativeGoogleMobileAdsCommon.java b/node_modules/react-native-google-mobile-ads/android/src/main/java/io/invertase/googlemobileads/ReactNativeGoogleMobileAdsCommon.java
+index 825a76f..00a74da 100644
+--- a/node_modules/react-native-google-mobile-ads/android/src/main/java/io/invertase/googlemobileads/ReactNativeGoogleMobileAdsCommon.java
++++ b/node_modules/react-native-google-mobile-ads/android/src/main/java/io/invertase/googlemobileads/ReactNativeGoogleMobileAdsCommon.java
+@@ -69,7 +69,10 @@ public class ReactNativeGoogleMobileAdsCommon {
+             reactViewGroup.getContext(), adWidth);
+       }
+       if ("LARGE_ANCHORED_ADAPTIVE_BANNER".equals(preDefinedAdSize)) {
+-        return AdSize.getLargeAnchoredAdaptiveBannerAdSize(reactViewGroup.getContext(), adWidth);
++        // getLargeAnchoredAdaptiveBannerAdSize requires newer play-services-ads;
++        // fall back for Expo SDK 54 / ads 24.5.0 pin.
++        return AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(
++            reactViewGroup.getContext(), adWidth);
+       }
+       return AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(
+           reactViewGroup.getContext(), adWidth);
+diff --git a/node_modules/react-native-google-mobile-ads/android/src/main/java/io/invertase/googlemobileads/ReactNativeGoogleMobileAdsModule.kt b/node_modules/react-native-google-mobile-ads/android/src/main/java/io/invertase/googlemobileads/ReactNativeGoogleMobileAdsModule.kt
+index bcaf487..27cb808 100644
+--- a/node_modules/react-native-google-mobile-ads/android/src/main/java/io/invertase/googlemobileads/ReactNativeGoogleMobileAdsModule.kt
++++ b/node_modules/react-native-google-mobile-ads/android/src/main/java/io/invertase/googlemobileads/ReactNativeGoogleMobileAdsModule.kt
+@@ -25,7 +25,6 @@ import com.google.android.gms.ads.AdInspectorError
+ import com.google.android.gms.ads.AdRequest
+ import com.google.android.gms.ads.AdValue;
+ import com.google.android.gms.ads.OnAdInspectorClosedListener
+-import com.google.android.gms.ads.AgeRestrictedTreatment
+ 
+ class ReactNativeGoogleMobileAdsModule(
+   reactContext: ReactApplicationContext
+@@ -63,15 +62,8 @@ class ReactNativeGoogleMobileAdsModule(
+       }
+     }
+ 
+-    if (requestConfiguration.hasKey("ageRestrictedTreatment")) {
+-      val ageRestrictedTreatment = requestConfiguration.getString("ageRestrictedTreatment")
+-
+-      when (ageRestrictedTreatment) {
+-        "CHILD" -> builder.setAgeRestrictedTreatment(AgeRestrictedTreatment.CHILD)
+-        "TEEN" -> builder.setAgeRestrictedTreatment(AgeRestrictedTreatment.TEEN)
+-        "UNSPECIFIED" -> builder.setAgeRestrictedTreatment(AgeRestrictedTreatment.UNSPECIFIED)
+-      }
+-    }
++    // ageRestrictedTreatment (play-services-ads 25.3+) is omitted:
++    // Expo SDK 54 Kotlin 2.1 cannot consume ads 25.x (Kotlin 2.3 metadata).
+ 
+     if (requestConfiguration.hasKey("tagForChildDirectedTreatment")) {
+       val tagForChildDirectedTreatment = requestConfiguration.getBoolean("tagForChildDirectedTreatment")

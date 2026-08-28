@@ -49,23 +49,38 @@ function buildNotificationBody(aircraft: Aircraft): string {
   return parts.join(' / ');
 }
 
+const ANDROID_CHANNEL_ID = 'reapproach';
+
+async function ensureAndroidChannel(): Promise<void> {
+  if (Platform.OS !== 'android') return;
+
+  await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
+    name: 'Aircraft approach',
+    importance: Notifications.AndroidImportance.DEFAULT,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: '#00D4FF',
+  });
+}
+
 export async function requestNotificationPermissions(): Promise<boolean> {
-  if (Platform.OS !== 'ios') {
-    return false;
-  }
+  await ensureAndroidChannel();
 
   const { status: existing } = await Notifications.getPermissionsAsync();
   if (existing === 'granted') {
     return true;
   }
 
-  const { status } = await Notifications.requestPermissionsAsync({
-    ios: {
-      allowAlert: true,
-      allowBadge: false,
-      allowSound: true,
-    },
-  });
+  const { status } = await Notifications.requestPermissionsAsync(
+    Platform.OS === 'ios'
+      ? {
+          ios: {
+            allowAlert: true,
+            allowBadge: false,
+            allowSound: true,
+          },
+        }
+      : undefined,
+  );
 
   return status === 'granted';
 }
@@ -79,6 +94,7 @@ export async function notifyReapproach(aircraft: Aircraft): Promise<void> {
       title: t('notifyTitle', { flight: flightLabel, km: NOTIFY_RADIUS_KM }),
       body: buildNotificationBody(aircraft),
       sound: true,
+      ...(Platform.OS === 'android' ? { channelId: ANDROID_CHANNEL_ID } : null),
     },
     trigger: null,
   });

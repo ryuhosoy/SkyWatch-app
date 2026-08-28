@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Platform,
   View,
   Text,
   StyleSheet,
@@ -10,9 +11,11 @@ import MapView, {
   Polygon,
   Polyline,
   PROVIDER_DEFAULT,
+  PROVIDER_GOOGLE,
   type Region,
 } from 'react-native-maps';
 import { MaterialIcons } from '@expo/vector-icons';
+import { GOOGLE_MAPS_MAP_ID, hideGooglePoiMapStyle } from '../constants/mapDarkStyle';
 import type { Aircraft, Coordinates } from '../types';
 import type { AircraftTrackHistory } from '../hooks/useAircraftTrackHistory';
 import { t } from '../i18n';
@@ -61,20 +64,28 @@ interface Props {
   onSelectionChange?: (selected: boolean) => void;
 }
 
+/** 便名ラベルを機体座標の真下に置くためのオフセット（planeSlot の半分 + 隙間） */
+const AIRCRAFT_LABEL_TOP_OFFSET = 21;
+
 function AircraftMarker({
   aircraft,
   isClosest,
   isSelected,
   mapHeading,
+  slotIndex,
   onPress,
 }: {
   aircraft: Aircraft;
   isClosest: boolean;
   isSelected: boolean;
-  /** 地図カメラの方位（真北=0、時計回り）。画面上端が北なら 0 */
+  /** 地図カメラの方位。機首の地図上方位計算に使用 */
   mapHeading: number;
+  /** Android: マーカー数を固定して add/remove による残像を防ぐ */
+  slotIndex: number;
   onPress: () => void;
 }): React.JSX.Element {
+  const iconMarkerRef = useRef<InstanceType<typeof Marker>>(null);
+  const labelMarkerRef = useRef<InstanceType<typeof Marker>>(null);
   const color = isSelected
     ? COLORS.white
     : isClosest
@@ -83,48 +94,109 @@ function AircraftMarker({
         ? COLORS.ground
         : COLORS.orange;
   const headingDeg = aircraft.heading ?? 0;
-  // カスタム Marker は画面基準で描画されるので、地図回転分を差し引いて実方位を保つ
-  const rotationDeg = headingDeg - mapHeading;
-  const renderKey = `${aircraft.latitude.toFixed(6)}:${aircraft.longitude.toFixed(6)}:${headingDeg.toFixed(1)}:${mapHeading.toFixed(1)}:${isSelected}:${aircraft.onGround}`;
+  const icaoKey = aircraft.icao24.trim().toLowerCase();
+  const hasLabel = aircraft.flightNumber !== '----';
+  const coordinate = {
+    latitude: aircraft.latitude,
+    longitude: aircraft.longitude,
+  };
+  // 画面基準のカスタム Marker なので地図回転分を差し引いて実方位を保つ（iOS / Android 共通）
+  const iconRotationDeg = headingDeg - mapHeading;
+  const androidIconNativeRotation = ((iconRotationDeg % 360) + 360) % 360;
+  const mapHeadingBucket = Math.round(mapHeading / 3) * 3;
+  const renderKey = `${icaoKey}:${aircraft.latitude.toFixed(5)}:${aircraft.longitude.toFixed(5)}:${headingDeg.toFixed(0)}:${mapHeadingBucket}:${isSelected}:${isClosest}:${aircraft.onGround}:${aircraft.flightNumber}`;
 
   const [tracksViewChanges, setTracksViewChanges] = useState(true);
 
   useEffect(() => {
     setTracksViewChanges(true);
-    const timer = setTimeout(() => setTracksViewChanges(false), 500);
+    const timer = setTimeout(() => {
+      setTracksViewChanges(false);
+      if (Platform.OS === 'android') {
+        iconMarkerRef.current?.redraw();
+        labelMarkerRef.current?.redraw();
+      }
+    }, Platform.OS === 'android' ? 400 : 500);
     return () => clearTimeout(timer);
   }, [renderKey]);
 
+  const planeIcon = (
+    <View style={styles.planeSlot} collapsable={false}>
+      <View
+        style={[
+          styles.planeRotate,
+          isSelected && styles.planeSelected,
+          Platform.OS === 'ios'
+            ? { transform: [{ rotate: `${iconRotationDeg}deg` }] }
+            : null,
+        ]}
+      >
+        <MaterialIcons name="flight" size={22} color={color} />
+      </View>
+    </View>
+  );
+
+  const labelPill = hasLabel ? (
+    <View style={[styles.labelPill, { borderColor: color }]}>
+      <Text style={[styles.labelText, { color }]} numberOfLines={1}>
+        {aircraft.flightNumber}
+      </Text>
+    </View>
+  ) : null;
+
+  const handlePress = (e: { stopPropagation: () => void }): void => {
+    e.stopPropagation();
+    onPress();
+  };
+
+  if (Platform.OS === 'android') {
+    const zIndex = 5 + slotIndex;
+    return (
+      <>
+        <Marker
+          ref={iconMarkerRef}
+          identifier={icaoKey}
+          coordinate={coordinate}
+          anchor={{ x: 0.5, y: 0.5 }}
+          rotation={androidIconNativeRotation}
+          flat={false}
+          zIndex={zIndex}
+          tracksViewChanges={tracksViewChanges}
+          onPress={handlePress}
+        >
+          {planeIcon}
+        </Marker>
+        {hasLabel ? (
+          <Marker
+            ref={labelMarkerRef}
+            identifier={`${icaoKey}-label`}
+            coordinate={coordinate}
+            anchor={{ x: 0.5, y: 0 }}
+            flat={false}
+            zIndex={zIndex}
+            tracksViewChanges={tracksViewChanges}
+            tappable={false}
+          >
+            <View style={styles.labelMarkerWrap} collapsable={false}>
+              {labelPill}
+            </View>
+          </Marker>
+        ) : null}
+      </>
+    );
+  }
+
   return (
     <Marker
-      coordinate={{
-        latitude: aircraft.latitude,
-        longitude: aircraft.longitude,
-      }}
+      identifier={icaoKey}
+      coordinate={coordinate}
       anchor={{ x: 0.5, y: 0.5 }}
       tracksViewChanges={tracksViewChanges}
-      onPress={(e) => {
-        e.stopPropagation();
-        onPress();
-      }}
+      onPress={handlePress}
     >
       <View style={styles.markerWrap}>
-        <View
-          style={[
-            styles.planeRotate,
-            isSelected && styles.planeSelected,
-            { transform: [{ rotate: `${rotationDeg}deg` }] },
-          ]}
-        >
-          <MaterialIcons name="flight" size={22} color={color} />
-        </View>
-        {aircraft.flightNumber !== '----' ? (
-          <View style={[styles.labelPill, { borderColor: color }]}>
-            <Text style={[styles.labelText, { color }]} numberOfLines={1}>
-              {aircraft.flightNumber}
-            </Text>
-          </View>
-        ) : null}
+        {planeIcon}
+        {labelPill}
       </View>
     </Marker>
   );
@@ -249,21 +321,35 @@ export default function SkyMap({
   }, [location, latitudeDelta]);
 
   const displayAircraft = useMemo(() => {
-    return aircraft.map((ac) => {
-      const track = trackHistory?.get(ac.icao24.toLowerCase());
+    const byIcao = new Map<string, Aircraft>();
+    for (const ac of aircraft) {
+      const key = ac.icao24?.trim().toLowerCase();
+      if (!key) continue;
+      const existing = byIcao.get(key);
+      if (existing != null && existing.distanceKm <= ac.distanceKm) continue;
+      const track = trackHistory?.get(key);
       const aligned = alignToTrackTip(ac, track);
-      if (
+      const normalized =
         aligned.latitude === ac.latitude &&
         aligned.longitude === ac.longitude &&
         aligned.heading === ac.heading
-      ) {
-        return ac;
-      }
-      return { ...ac, ...aligned };
-    });
+          ? ac
+          : { ...ac, ...aligned };
+      byIcao.set(key, { ...normalized, icao24: key });
+    }
+    return Array.from(byIcao.values());
   }, [aircraft, trackHistory]);
 
   const mapAircraft = displayAircraft.slice(0, MAX_MAP_AIRCRAFT);
+
+  /** Android: スロット数を固定し、機体の出入りで Marker の add/remove を減らす */
+  const aircraftMarkerSlots = useMemo(() => {
+    const slots: Array<Aircraft | null> = Array.from({ length: MAX_MAP_AIRCRAFT }, () => null);
+    mapAircraft.forEach((ac, index) => {
+      slots[index] = ac;
+    });
+    return slots;
+  }, [mapAircraft]);
 
   const selectedAircraft =
     selectedIcao24 != null
@@ -479,20 +565,29 @@ export default function SkyMap({
   const routeArrowCoords = Array.from({ length: 3 }, (_, index) =>
     routeOverlayVisible ? (selectedRouteArrows[index] ?? hiddenArrow) : hiddenArrow,
   );
-  const departureCoordinate = routeOverlayVisible ? selectedRouteEndpoints.departure : hiddenPoint;
-  const arrivalCoordinate = routeOverlayVisible ? selectedRouteEndpoints.arrival : hiddenPoint;
 
   return (
     <View style={styles.container}>
       <MapView
+        key={
+          Platform.OS === 'android'
+            ? `android-map-${GOOGLE_MAPS_MAP_ID ?? 'default'}-dark`
+            : undefined
+        }
         ref={mapRef}
         style={styles.map}
-        provider={PROVIDER_DEFAULT}
+        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : PROVIDER_DEFAULT}
+        googleMapId={Platform.OS === 'android' ? GOOGLE_MAPS_MAP_ID : undefined}
+        googleRenderer={Platform.OS === 'android' ? 'LATEST' : undefined}
         initialRegion={initialRegion}
         showsUserLocation
         showsMyLocationButton={false}
         showsCompass={false}
         userInterfaceStyle="dark"
+        loadingBackgroundColor={COLORS.bg}
+        customMapStyle={Platform.OS === 'android' ? hideGooglePoiMapStyle : undefined}
+        poiClickEnabled={Platform.OS !== 'android'}
+        toolbarEnabled={false}
         mapType="standard"
         onPress={() => {
           if (ignoreMapPressRef.current) {
@@ -545,40 +640,45 @@ export default function SkyMap({
             zIndex={4}
           />
         ))}
-        <Marker
-          key="route-departure"
-          coordinate={departureCoordinate}
-          anchor={{ x: 0.5, y: 0.5 }}
-          tracksViewChanges={false}
-          zIndex={3}
-        >
-          <View style={[styles.airportDot, !routeOverlayVisible && styles.hiddenOverlayMarker]}>
-            <View style={[styles.airportDotInner, { backgroundColor: COLORS.muted }]} />
-          </View>
-        </Marker>
-        <Marker
-          key="route-arrival"
-          coordinate={arrivalCoordinate}
-          anchor={{ x: 0.5, y: 0.5 }}
-          tracksViewChanges={false}
-          zIndex={3}
-        >
-          <View
-            style={[styles.airportDotArrival, !routeOverlayVisible && styles.hiddenOverlayMarker]}
-          >
-            <MaterialIcons name="flag" size={10} color={COLORS.cyan} />
-          </View>
-        </Marker>
-        {mapAircraft.map((ac, index) => (
-          <AircraftMarker
-            key={ac.icao24}
-            aircraft={ac}
-            isClosest={index === 0}
-            isSelected={ac.icao24 === selectedIcao24 && !isNearestSelected}
-            mapHeading={mapHeading}
-            onPress={() => handleSelectAircraft(ac.icao24)}
-          />
-        ))}
+        {routeOverlayVisible ? (
+          <>
+            <Marker
+              key="route-departure"
+              coordinate={selectedRouteEndpoints.departure}
+              anchor={{ x: 0.5, y: 0.5 }}
+              tracksViewChanges={false}
+              zIndex={3}
+            >
+              <View style={styles.airportDot}>
+                <View style={[styles.airportDotInner, { backgroundColor: COLORS.muted }]} />
+              </View>
+            </Marker>
+            <Marker
+              key="route-arrival"
+              coordinate={selectedRouteEndpoints.arrival}
+              anchor={{ x: 0.5, y: 0.5 }}
+              tracksViewChanges={false}
+              zIndex={3}
+            >
+              <View style={styles.airportDotArrival}>
+                <MaterialIcons name="flag" size={10} color={COLORS.cyan} />
+              </View>
+            </Marker>
+          </>
+        ) : null}
+        {aircraftMarkerSlots.map((ac, slotIndex) =>
+          ac != null ? (
+            <AircraftMarker
+              key={Platform.OS === 'android' ? `ac-slot-${slotIndex}` : ac.icao24}
+              slotIndex={slotIndex}
+              aircraft={ac}
+              isClosest={slotIndex === 0}
+              isSelected={ac.icao24 === selectedIcao24 && !isNearestSelected}
+              mapHeading={mapHeading}
+              onPress={() => handleSelectAircraft(ac.icao24)}
+            />
+          ) : null,
+        )}
       </MapView>
 
       <TouchableOpacity
@@ -662,6 +762,9 @@ const styles = StyleSheet.create({
   markerWrap: {
     alignItems: 'center',
     gap: 2,
+    overflow: 'visible',
+    paddingHorizontal: 6,
+    paddingVertical: 4,
   },
   airportDot: {
     width: 14,
@@ -688,18 +791,28 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.cyan,
   },
-  hiddenOverlayMarker: {
-    opacity: 0,
+  planeSlot: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'visible',
   },
   planeRotate: {
     alignItems: 'center',
     justifyContent: 'center',
     width: 28,
     height: 28,
+    overflow: 'visible',
   },
   planeSelected: {
     backgroundColor: 'rgba(0, 212, 255, 0.2)',
     borderRadius: 14,
+  },
+  labelMarkerWrap: {
+    paddingTop: AIRCRAFT_LABEL_TOP_OFFSET,
+    alignItems: 'center',
+    paddingHorizontal: 4,
   },
   labelPill: {
     backgroundColor: 'rgba(6, 11, 24, 0.85)',

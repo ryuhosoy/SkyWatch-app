@@ -18,22 +18,46 @@
       },
       "bundleIdentifier": "com.ryuhosoy.FlightOverhead"
     },
+    "android": {
+      "package": "com.ryuhosoy.FlightOverhead",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png",
+        "backgroundColor": "#060B18"
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "POST_NOTIFICATIONS",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyBIn55t31QKFTWolRs_4e60iQYs_JmRFfA"
+        }
+      }
+    },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "./plugins/withPlayServicesAdsPin.js",
       [
         "expo-location",
         {
           "locationWhenInUsePermission": "Your location is used to find aircraft flying overhead near you.",
           "locationAlwaysAndWhenInUsePermission": "Your location is used to find and track aircraft flying overhead near you.",
-          "locationAlwaysPermission": "Your location is used to track nearby aircraft, including while the app is in the background."
+          "locationAlwaysPermission": "Your location is used to track nearby aircraft, including while the app is in the background.",
+          "isAndroidForegroundServiceEnabled": true
         }
       ],
       [
         "expo-notifications",
         {
-          "color": "#00D4FF"
+          "color": "#00D4FF",
+          "defaultChannel": "reapproach"
         }
       ],
       "expo-font",
@@ -41,6 +65,7 @@
         "react-native-google-mobile-ads",
         {
           "iosAppId": "ca-app-pub-4792257124590677~9320409633",
+          "androidAppId": "ca-app-pub-3940256099942544~3347511713",
           "skAdNetworkItems": [
             "cstr6suwn9.skadnetwork",
             "4fzdc2evr5.skadnetwork",
@@ -103,6 +128,7 @@
     }
   },
   "react-native-google-mobile-ads": {
-    "ios_app_id": "ca-app-pub-4792257124590677~9320409633"
+    "ios_app_id": "ca-app-pub-4792257124590677~9320409633",
+    "android_app_id": "ca-app-pub-3940256099942544~3347511713"
   }
 }

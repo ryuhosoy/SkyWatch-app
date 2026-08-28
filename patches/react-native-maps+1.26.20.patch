@@ -1,0 +1,45 @@
+diff --git a/node_modules/react-native-maps/android/src/main/java/com/rnmaps/maps/MapManager.java b/node_modules/react-native-maps/android/src/main/java/com/rnmaps/maps/MapManager.java
+index fb78287..eeb2da6 100644
+--- a/node_modules/react-native-maps/android/src/main/java/com/rnmaps/maps/MapManager.java
++++ b/node_modules/react-native-maps/android/src/main/java/com/rnmaps/maps/MapManager.java
+@@ -27,6 +27,7 @@ import com.google.android.gms.maps.MapsInitializer;
+ import com.google.android.gms.maps.model.CameraPosition;
+ import com.google.android.gms.maps.model.LatLng;
+ import com.google.android.gms.maps.model.LatLngBounds;
++import com.google.android.gms.maps.model.MapColorScheme;
+ 
+ import java.util.Map;
+ 
+@@ -104,6 +105,16 @@ public class MapManager extends ViewGroupManager<MapView> {
+             } else {
+                 renderer = MapsInitializer.Renderer.LATEST;
+             }
++            if (initialProps.hasKey("userInterfaceStyle") && !initialProps.getBoolean("liteMode", false)) {
++                String style = initialProps.getString("userInterfaceStyle");
++                if ("system".equals(style)) {
++                    googleMapOptions.mapColorScheme(MapColorScheme.FOLLOW_SYSTEM);
++                } else if ("light".equals(style)) {
++                    googleMapOptions.mapColorScheme(MapColorScheme.LIGHT);
++                } else if ("dark".equals(style)) {
++                    googleMapOptions.mapColorScheme(MapColorScheme.DARK);
++                }
++            }
+         }
+         return super.createViewInstance(reactTag, reactContext, initialProps, stateWrapper);
+     }
+diff --git a/node_modules/react-native-maps/ios/AirMaps/AIRMap.mm b/node_modules/react-native-maps/ios/AirMaps/AIRMap.mm
+index c581770..326ba11 100644
+--- a/node_modules/react-native-maps/ios/AirMaps/AIRMap.mm
++++ b/node_modules/react-native-maps/ios/AirMaps/AIRMap.mm
+@@ -148,7 +148,10 @@ - (void)insertReactSubview:(id<RCTComponent>)subview atIndex:(NSInteger)atIndex
+             [self insertReactSubview:(UIView *)childSubviews[i] atIndex:atIndex];
+         }
+     }
+-    [_reactSubviews insertObject:(UIView *)subview atIndex:(NSUInteger) atIndex];
++    if (subview != nil) {
++        NSUInteger safeIndex = MIN((NSUInteger)atIndex, _reactSubviews.count);
++        [_reactSubviews insertObject:(UIView *)subview atIndex:safeIndex];
++    }
+ }
+ #pragma clang diagnostic pop
+ 

@@ -120,7 +120,7 @@ export async function fetchAircraftOverhead(
     return [];
   }
 
-  const aircraft = data.states
+  const dedupedByIcao = data.states
     .filter((s: OpenSkyState) => s[5] != null && s[6] != null)
     .map((s: OpenSkyState): Aircraft => {
       const altMeters = s[7] ?? s[13] ?? 0;
@@ -130,7 +130,7 @@ export async function fetchAircraftOverhead(
       const distKm = haversine(latitude, longitude, acLat, acLon);
 
       return {
-        icao24: s[0],
+        icao24: (s[0] ?? '').trim().toLowerCase(),
         callsign: callsign ?? '----',
         airlineName: getAirlineName(callsign),
         flightNumber: formatFlightNumber(callsign),
@@ -164,7 +164,19 @@ export async function fetchAircraftOverhead(
         aircraftManufacturer: null,
       };
     })
-    .sort((a, b) => a.distanceKm - b.distanceKm);
+    .reduce((byIcao: Map<string, Aircraft>, ac) => {
+      const key = ac.icao24;
+      if (!key) return byIcao;
+      const existing = byIcao.get(key);
+      if (existing == null || ac.distanceKm < existing.distanceKm) {
+        byIcao.set(key, ac);
+      }
+      return byIcao;
+    }, new Map<string, Aircraft>());
+
+  const aircraft = Array.from(dedupedByIcao.values()).sort(
+    (a, b) => a.distanceKm - b.distanceKm,
+  );
 
   try {
     return await enrichAircraftWithRoutes(aircraft);

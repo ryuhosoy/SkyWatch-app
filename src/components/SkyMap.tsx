@@ -15,7 +15,7 @@ import MapView, {
   type Region,
 } from 'react-native-maps';
 import { MaterialIcons } from '@expo/vector-icons';
-import { GOOGLE_MAPS_MAP_ID, hideGooglePoiMapStyle } from '../constants/mapDarkStyle';
+import { hideGooglePoiMapStyle } from '../constants/mapDarkStyle';
 import type { Aircraft, Coordinates } from '../types';
 import type { AircraftTrackHistory } from '../hooks/useAircraftTrackHistory';
 import { t } from '../i18n';
@@ -45,6 +45,8 @@ const COLORS = {
 } as const;
 
 const DEFAULT_DELTA = 0.45;
+/** Android: 凡例・現在地ボタンを少し下げる（ステータスバー等との重なり回避） */
+const MAP_OVERLAY_TOP = Platform.OS === 'android' ? 44 : 8;
 /** Fabric の insert クラッシュ緩和のため地図上マーカー数を制限 */
 const MAX_MAP_AIRCRAFT = 30;
 
@@ -64,8 +66,32 @@ interface Props {
   onSelectionChange?: (selected: boolean) => void;
 }
 
-/** 便名ラベルを機体座標の真下に置くためのオフセット（planeSlot の半分 + 隙間） */
-const AIRCRAFT_LABEL_TOP_OFFSET = 21;
+/** 飛行機アイコンのタップ当たり判定サイズ */
+const AIRCRAFT_TAP_SLOT = 32;
+/** 便名ラベル行の高さ（anchor 計算・tap 枠用。pill + 文字 + border 込み） */
+const AIRCRAFT_LABEL_HEIGHT = 18;
+/** 重なり時は近い機体（slot 0）を優先 */
+const aircraftMarkerZIndex = (slotIndex: number): number => MAX_MAP_AIRCRAFT - slotIndex;
+/** 地図パン直後の誤タップを無視する ms */
+const MAP_GESTURE_TAP_COOLDOWN_MS = 200;
+const ANDROID_SLOT_ID = /^ac-slot-(\d+)$/;
+
+function aircraftSlotIdentifier(slotIndex: number): string {
+  return `ac-slot-${slotIndex}`;
+}
+
+function aircraftMarkerAnchor(hasLabel: boolean): { x: number; y: number } {
+  if (!hasLabel) return { x: 0.5, y: 0.5 };
+  const totalH = AIRCRAFT_TAP_SLOT + AIRCRAFT_LABEL_HEIGHT;
+  return { x: 0.5, y: AIRCRAFT_TAP_SLOT / 2 / totalH };
+}
+
+function aircraftMarkerSize(hasLabel: boolean): { width: number; height: number } {
+  return {
+    width: hasLabel ? 72 : AIRCRAFT_TAP_SLOT,
+    height: hasLabel ? AIRCRAFT_TAP_SLOT + AIRCRAFT_LABEL_HEIGHT : AIRCRAFT_TAP_SLOT,
+  };
+}
 
 function AircraftMarker({
   aircraft,
@@ -73,19 +99,63 @@ function AircraftMarker({
   isSelected,
   mapHeading,
   slotIndex,
+  markerIdentifier,
+  hiddenCoordinate,
   onPress,
 }: {
-  aircraft: Aircraft;
+  aircraft: Aircraft | null;
   isClosest: boolean;
   isSelected: boolean;
   /** 地図カメラの方位。機首の地図上方位計算に使用 */
   mapHeading: number;
-  /** Android: マーカー数を固定して add/remove による残像を防ぐ */
   slotIndex: number;
+  /** Android はスロット固定 ID にしてネイティブ Marker の重複を防ぐ */
+  markerIdentifier: string;
+  hiddenCoordinate?: Coordinates;
   onPress: () => void;
 }): React.JSX.Element {
-  const iconMarkerRef = useRef<InstanceType<typeof Marker>>(null);
-  const labelMarkerRef = useRef<InstanceType<typeof Marker>>(null);
+  const markerRef = useRef<InstanceType<typeof Marker>>(null);
+  const isHidden = aircraft == null;
+  const headingDeg = aircraft?.heading ?? 0;
+  const icaoKey = aircraft?.icao24.trim().toLowerCase() ?? 'hidden';
+  const hasLabel = aircraft != null && aircraft.flightNumber !== '----';
+  const mapHeadingBucket = Math.round(mapHeading / 3) * 3;
+  const renderKey = isHidden
+    ? `hidden:${slotIndex}`
+    : `${icaoKey}:${aircraft.latitude.toFixed(5)}:${aircraft.longitude.toFixed(5)}:${headingDeg.toFixed(0)}:${mapHeadingBucket}:${isSelected}:${isClosest}:${aircraft.onGround}:${aircraft.flightNumber}`;
+
+  const [tracksViewChanges, setTracksViewChanges] = useState(!isHidden);
+
+  useEffect(() => {
+    if (isHidden) {
+      setTracksViewChanges(false);
+      return;
+    }
+    setTracksViewChanges(true);
+    const timer = setTimeout(() => {
+      setTracksViewChanges(false);
+      if (Platform.OS === 'android') {
+        markerRef.current?.redraw();
+      }
+    }, Platform.OS === 'android' ? 400 : 500);
+    return () => clearTimeout(timer);
+  }, [renderKey, isHidden]);
+
+  if (isHidden) {
+    const coordinate = hiddenCoordinate ?? { latitude: 0, longitude: 0 };
+    return (
+      <Marker
+        identifier={markerIdentifier}
+        coordinate={coordinate}
+        opacity={0}
+        tracksViewChanges={false}
+        zIndex={0}
+      >
+        <View style={styles.hiddenMarker} collapsable={false} />
+      </Marker>
+    );
+  }
+
   const color = isSelected
     ? COLORS.white
     : isClosest
@@ -93,32 +163,11 @@ function AircraftMarker({
       : aircraft.onGround
         ? COLORS.ground
         : COLORS.orange;
-  const headingDeg = aircraft.heading ?? 0;
-  const icaoKey = aircraft.icao24.trim().toLowerCase();
-  const hasLabel = aircraft.flightNumber !== '----';
+  const iconRotationDeg = headingDeg - mapHeading;
   const coordinate = {
     latitude: aircraft.latitude,
     longitude: aircraft.longitude,
   };
-  // 画面基準のカスタム Marker なので地図回転分を差し引いて実方位を保つ（iOS / Android 共通）
-  const iconRotationDeg = headingDeg - mapHeading;
-  const androidIconNativeRotation = ((iconRotationDeg % 360) + 360) % 360;
-  const mapHeadingBucket = Math.round(mapHeading / 3) * 3;
-  const renderKey = `${icaoKey}:${aircraft.latitude.toFixed(5)}:${aircraft.longitude.toFixed(5)}:${headingDeg.toFixed(0)}:${mapHeadingBucket}:${isSelected}:${isClosest}:${aircraft.onGround}:${aircraft.flightNumber}`;
-
-  const [tracksViewChanges, setTracksViewChanges] = useState(true);
-
-  useEffect(() => {
-    setTracksViewChanges(true);
-    const timer = setTimeout(() => {
-      setTracksViewChanges(false);
-      if (Platform.OS === 'android') {
-        iconMarkerRef.current?.redraw();
-        labelMarkerRef.current?.redraw();
-      }
-    }, Platform.OS === 'android' ? 400 : 500);
-    return () => clearTimeout(timer);
-  }, [renderKey]);
 
   const planeIcon = (
     <View style={styles.planeSlot} collapsable={false}>
@@ -126,9 +175,7 @@ function AircraftMarker({
         style={[
           styles.planeRotate,
           isSelected && styles.planeSelected,
-          Platform.OS === 'ios'
-            ? { transform: [{ rotate: `${iconRotationDeg}deg` }] }
-            : null,
+          { transform: [{ rotate: `${iconRotationDeg}deg` }] },
         ]}
       >
         <MaterialIcons name="flight" size={22} color={color} />
@@ -149,52 +196,25 @@ function AircraftMarker({
     onPress();
   };
 
-  if (Platform.OS === 'android') {
-    const zIndex = 5 + slotIndex;
-    return (
-      <>
-        <Marker
-          ref={iconMarkerRef}
-          identifier={icaoKey}
-          coordinate={coordinate}
-          anchor={{ x: 0.5, y: 0.5 }}
-          rotation={androidIconNativeRotation}
-          flat={false}
-          zIndex={zIndex}
-          tracksViewChanges={tracksViewChanges}
-          onPress={handlePress}
-        >
-          {planeIcon}
-        </Marker>
-        {hasLabel ? (
-          <Marker
-            ref={labelMarkerRef}
-            identifier={`${icaoKey}-label`}
-            coordinate={coordinate}
-            anchor={{ x: 0.5, y: 0 }}
-            flat={false}
-            zIndex={zIndex}
-            tracksViewChanges={tracksViewChanges}
-            tappable={false}
-          >
-            <View style={styles.labelMarkerWrap} collapsable={false}>
-              {labelPill}
-            </View>
-          </Marker>
-        ) : null}
-      </>
-    );
-  }
+  const { width: markerWidth, height: markerHeight } = aircraftMarkerSize(hasLabel);
 
   return (
     <Marker
-      identifier={icaoKey}
+      ref={markerRef}
+      identifier={markerIdentifier}
       coordinate={coordinate}
-      anchor={{ x: 0.5, y: 0.5 }}
+      anchor={aircraftMarkerAnchor(hasLabel)}
+      zIndex={aircraftMarkerZIndex(slotIndex)}
       tracksViewChanges={tracksViewChanges}
       onPress={handlePress}
     >
-      <View style={styles.markerWrap}>
+      <View
+        style={[
+          styles.markerWrap,
+          { width: markerWidth, height: markerHeight },
+        ]}
+        collapsable={false}
+      >
         {planeIcon}
         {labelPill}
       </View>
@@ -290,6 +310,9 @@ export default function SkyMap({
   const [mapHeading, setMapHeading] = useState(0);
   /** Marker タップ後に MapView onPress が続いて選択解除されるのを防ぐ */
   const ignoreMapPressRef = useRef(false);
+  /** 地図ジェスチャ中・直後の誤タップ防止（Android） */
+  const mapGestureActiveRef = useRef(false);
+  const mapGestureEndedAtRef = useRef(0);
 
   const syncMapHeading = useCallback(() => {
     const now = Date.now();
@@ -342,7 +365,7 @@ export default function SkyMap({
 
   const mapAircraft = displayAircraft.slice(0, MAX_MAP_AIRCRAFT);
 
-  /** Android: スロット数を固定し、機体の出入りで Marker の add/remove を減らす */
+  /** Android: スロット数を固定し Marker の add/remove による残像・重複を防ぐ */
   const aircraftMarkerSlots = useMemo(() => {
     const slots: Array<Aircraft | null> = Array.from({ length: MAX_MAP_AIRCRAFT }, () => null);
     mapAircraft.forEach((ac, index) => {
@@ -371,6 +394,7 @@ export default function SkyMap({
   }, [selectedIcao24, ensureFullTrack]);
 
   const headingBeam = useMemo(() => {
+    if (Platform.OS === 'android') return null;
     if (!location || heading == null) return null;
     const { lengthM, baseHalfWidthM } = beamSizeFromLatitudeDelta(latitudeDelta);
     return buildHeadingBeam(location, heading, lengthM, baseHalfWidthM);
@@ -522,14 +546,55 @@ export default function SkyMap({
       : undefined
   );
 
-  const handleSelectAircraft = (icao24: string | null): void => {
+  const handleSelectAircraft = useCallback((icao24: string | null): void => {
     if (icao24 != null) {
       ignoreMapPressRef.current = true;
       // 同じ機体の再タップでもポップアップを最初から表示し直す
       setPopupNonce((n) => n + 1);
     }
     setSelectedIcao24(icao24);
-  };
+  }, []);
+
+  const shouldIgnoreMapTap = useCallback((): boolean => {
+    if (mapGestureActiveRef.current) return true;
+    return Date.now() - mapGestureEndedAtRef.current < MAP_GESTURE_TAP_COOLDOWN_MS;
+  }, []);
+
+  const handleMarkerSelect = useCallback(
+    (icao24: string): void => {
+      if (shouldIgnoreMapTap()) return;
+      handleSelectAircraft(icao24);
+    },
+    [handleSelectAircraft, shouldIgnoreMapTap],
+  );
+
+  const handleMapPress = useCallback((): void => {
+    if (ignoreMapPressRef.current) {
+      ignoreMapPressRef.current = false;
+      return;
+    }
+    if (shouldIgnoreMapTap()) return;
+    handleSelectAircraft(null);
+  }, [handleSelectAircraft, shouldIgnoreMapTap]);
+
+  /** Android: スロット ID から現在の機体を引く（identifier は icao 固定にしない） */
+  const handleAndroidMarkerPress = useCallback(
+    (event: { nativeEvent: { id?: string } }): void => {
+      const id = event.nativeEvent.id?.trim().toLowerCase();
+      if (!id) return;
+
+      const slotMatch = ANDROID_SLOT_ID.exec(id);
+      const icao24 =
+        slotMatch != null
+          ? aircraftMarkerSlots[Number(slotMatch[1])]?.icao24 ?? null
+          : id;
+
+      if (icao24 == null) return;
+      ignoreMapPressRef.current = true;
+      handleMarkerSelect(icao24);
+    },
+    [handleMarkerSelect, aircraftMarkerSlots],
+  );
 
   useEffect(() => {
     onSelectionChange?.(selectedIcao24 != null);
@@ -571,13 +636,12 @@ export default function SkyMap({
       <MapView
         key={
           Platform.OS === 'android'
-            ? `android-map-${GOOGLE_MAPS_MAP_ID ?? 'default'}-dark`
+            ? 'android-map-dark-no-poi'
             : undefined
         }
         ref={mapRef}
         style={styles.map}
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : PROVIDER_DEFAULT}
-        googleMapId={Platform.OS === 'android' ? GOOGLE_MAPS_MAP_ID : undefined}
         googleRenderer={Platform.OS === 'android' ? 'LATEST' : undefined}
         initialRegion={initialRegion}
         showsUserLocation
@@ -586,23 +650,32 @@ export default function SkyMap({
         userInterfaceStyle="dark"
         loadingBackgroundColor={COLORS.bg}
         customMapStyle={Platform.OS === 'android' ? hideGooglePoiMapStyle : undefined}
-        poiClickEnabled={Platform.OS !== 'android'}
+        poiClickEnabled={false}
+        showsPointsOfInterests={false}
         toolbarEnabled={false}
+        moveOnMarkerPress={false}
+        zoomTapEnabled={false}
         mapType="standard"
-        onPress={() => {
-          if (ignoreMapPressRef.current) {
-            ignoreMapPressRef.current = false;
-            return;
+        onPress={handleMapPress}
+        onMarkerPress={
+          Platform.OS === 'android' ? handleAndroidMarkerPress : undefined
+        }
+        onRegionChangeStart={(_, details) => {
+          if (details.isGesture) {
+            mapGestureActiveRef.current = true;
           }
-          handleSelectAircraft(null);
         }}
         onRegionChange={() => {
           syncMapHeading();
         }}
-        onRegionChangeComplete={(region) => {
+        onRegionChangeComplete={(region, details) => {
           regionRef.current = region;
           setLatitudeDelta(region.latitudeDelta);
           syncMapHeading();
+          if (details.isGesture) {
+            mapGestureActiveRef.current = false;
+            mapGestureEndedAtRef.current = Date.now();
+          }
         }}
       >
         {headingBeam ? (
@@ -640,49 +713,42 @@ export default function SkyMap({
             zIndex={4}
           />
         ))}
-        {routeOverlayVisible ? (
-          <>
-            <Marker
-              key="route-departure"
-              coordinate={selectedRouteEndpoints.departure}
-              anchor={{ x: 0.5, y: 0.5 }}
-              tracksViewChanges={false}
-              zIndex={3}
-            >
-              <View style={styles.airportDot}>
-                <View style={[styles.airportDotInner, { backgroundColor: COLORS.muted }]} />
-              </View>
-            </Marker>
-            <Marker
-              key="route-arrival"
-              coordinate={selectedRouteEndpoints.arrival}
-              anchor={{ x: 0.5, y: 0.5 }}
-              tracksViewChanges={false}
-              zIndex={3}
-            >
-              <View style={styles.airportDotArrival}>
-                <MaterialIcons name="flag" size={10} color={COLORS.cyan} />
-              </View>
-            </Marker>
-          </>
-        ) : null}
-        {aircraftMarkerSlots.map((ac, slotIndex) =>
-          ac != null ? (
-            <AircraftMarker
-              key={Platform.OS === 'android' ? `ac-slot-${slotIndex}` : ac.icao24}
-              slotIndex={slotIndex}
-              aircraft={ac}
-              isClosest={slotIndex === 0}
-              isSelected={ac.icao24 === selectedIcao24 && !isNearestSelected}
-              mapHeading={mapHeading}
-              onPress={() => handleSelectAircraft(ac.icao24)}
-            />
-          ) : null,
-        )}
+        {Platform.OS === 'android'
+          ? aircraftMarkerSlots.map((ac, slotIndex) => (
+              <AircraftMarker
+                key={aircraftSlotIdentifier(slotIndex)}
+                slotIndex={slotIndex}
+                markerIdentifier={aircraftSlotIdentifier(slotIndex)}
+                aircraft={ac}
+                hiddenCoordinate={hiddenPoint}
+                isClosest={slotIndex === 0 && ac != null}
+                isSelected={
+                  ac != null &&
+                  ac.icao24 === selectedIcao24 &&
+                  !isNearestSelected
+                }
+                mapHeading={mapHeading}
+                onPress={() => {
+                  if (ac != null) handleMarkerSelect(ac.icao24);
+                }}
+              />
+            ))
+          : mapAircraft.map((ac, slotIndex) => (
+              <AircraftMarker
+                key={ac.icao24}
+                slotIndex={slotIndex}
+                markerIdentifier={ac.icao24}
+                aircraft={ac}
+                isClosest={slotIndex === 0}
+                isSelected={ac.icao24 === selectedIcao24 && !isNearestSelected}
+                mapHeading={mapHeading}
+                onPress={() => handleMarkerSelect(ac.icao24)}
+              />
+            ))}
       </MapView>
 
       <TouchableOpacity
-        style={styles.recenterBtn}
+        style={[styles.recenterBtn, { top: MAP_OVERLAY_TOP }]}
         onPress={recenterOnUser}
         accessibilityRole="button"
         accessibilityLabel={t('recenterLocation')}
@@ -693,7 +759,7 @@ export default function SkyMap({
       </TouchableOpacity>
 
       {selectedAircraft == null || isNearestSelected ? (
-        <View style={styles.legend}>
+        <View style={[styles.legend, { top: MAP_OVERLAY_TOP }]}>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: COLORS.cyan }]} />
             <Text style={styles.legendText}>{t('legendClosest')}</Text>
@@ -761,76 +827,46 @@ const styles = StyleSheet.create({
   },
   markerWrap: {
     alignItems: 'center',
-    gap: 2,
-    overflow: 'visible',
-    paddingHorizontal: 6,
-    paddingVertical: 4,
+    overflow: 'hidden',
   },
-  airportDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: 'rgba(6, 11, 24, 0.75)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.white,
-  },
-  airportDotInner: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-  },
-  airportDotArrival: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: 'rgba(6, 11, 24, 0.85)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.cyan,
+  hiddenMarker: {
+    width: 1,
+    height: 1,
   },
   planeSlot: {
-    width: 40,
-    height: 40,
+    width: AIRCRAFT_TAP_SLOT,
+    height: AIRCRAFT_TAP_SLOT,
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'visible',
   },
   planeRotate: {
     alignItems: 'center',
     justifyContent: 'center',
     width: 28,
     height: 28,
-    overflow: 'visible',
   },
   planeSelected: {
     backgroundColor: 'rgba(0, 212, 255, 0.2)',
     borderRadius: 14,
-  },
-  labelMarkerWrap: {
-    paddingTop: AIRCRAFT_LABEL_TOP_OFFSET,
-    alignItems: 'center',
-    paddingHorizontal: 4,
   },
   labelPill: {
     backgroundColor: 'rgba(6, 11, 24, 0.85)',
     borderWidth: 1,
     borderRadius: 6,
     paddingHorizontal: 5,
-    paddingVertical: 1,
+    paddingVertical: 2,
     maxWidth: 72,
+    alignSelf: 'center',
   },
   labelText: {
     fontSize: 9,
+    lineHeight: 12,
     fontWeight: '700',
     fontFamily: 'monospace',
     letterSpacing: 0.5,
   },
   legend: {
     position: 'absolute',
-    top: 8,
     left: 8,
     alignSelf: 'flex-start',
     flexDirection: 'row',
@@ -859,7 +895,6 @@ const styles = StyleSheet.create({
   },
   recenterBtn: {
     position: 'absolute',
-    top: 8,
     right: 8,
     flexDirection: 'row',
     alignItems: 'center',

@@ -15,7 +15,7 @@ import MapView, {
   type Region,
 } from 'react-native-maps';
 import { MaterialIcons } from '@expo/vector-icons';
-import { hideGooglePoiMapStyle } from '../constants/mapDarkStyle';
+import { GOOGLE_MAPS_MAP_ID } from '../constants/mapDarkStyle';
 import type { Aircraft, Coordinates } from '../types';
 import type { AircraftTrackHistory } from '../hooks/useAircraftTrackHistory';
 import { t } from '../i18n';
@@ -634,14 +634,10 @@ export default function SkyMap({
   return (
     <View style={styles.container}>
       <MapView
-        key={
-          Platform.OS === 'android'
-            ? 'android-map-dark-no-poi'
-            : undefined
-        }
         ref={mapRef}
         style={styles.map}
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : PROVIDER_DEFAULT}
+        googleMapId={Platform.OS === 'android' ? GOOGLE_MAPS_MAP_ID : undefined}
         googleRenderer={Platform.OS === 'android' ? 'LATEST' : undefined}
         initialRegion={initialRegion}
         showsUserLocation
@@ -649,7 +645,6 @@ export default function SkyMap({
         showsCompass={false}
         userInterfaceStyle="dark"
         loadingBackgroundColor={COLORS.bg}
-        customMapStyle={Platform.OS === 'android' ? hideGooglePoiMapStyle : undefined}
         poiClickEnabled={false}
         showsPointsOfInterests={false}
         toolbarEnabled={false}

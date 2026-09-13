@@ -17,6 +17,7 @@ export interface ReapproachEvent {
  * - 40km 外 → 40km 内に入った瞬間だけイベントを返す
  * - 同じ接近サイクル中は再通知しない
  * - 初回起動時に既に圏内にいる機は通知しない
+ * - 地上機（onGround）は通知しない
  */
 export class ReapproachTracker {
   private readonly states = new Map<string, TrackState>();
@@ -57,8 +58,11 @@ export class ReapproachTracker {
       }
 
       if (state.phase === 'outside') {
-        events.push({ aircraft: ac });
         state.phase = 'inside';
+        // 地上の機体（タクシー・駐機など）は通知しない
+        if (!ac.onGround) {
+          events.push({ aircraft: ac });
+        }
       }
     }
 

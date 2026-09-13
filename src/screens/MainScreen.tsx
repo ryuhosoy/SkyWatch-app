@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -6,15 +6,20 @@ import {
   TouchableOpacity,
   Animated,
   SafeAreaView,
+  Platform,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useAircraftOverhead } from '../hooks/useAircraftOverhead';
 import { useAircraftTrackHistory } from '../hooks/useAircraftTrackHistory';
 import { useReapproachNotifications } from '../hooks/useReapproachNotifications';
+import { useAppSettings } from '../hooks/useAppSettings';
 import { NOTIFY_HIGHLIGHT_MS } from '../constants/notifications';
+import { filterAircraftByAltitude } from '../utils/aircraftFilters';
 import { t } from '../i18n';
 import SkyMap from '../components/SkyMap';
 import AdBanner from '../components/AdBanner';
+import SettingsModal from '../components/SettingsModal';
 
 const COLORS = {
   bg: '#060B18',
@@ -24,6 +29,8 @@ const COLORS = {
   orange: '#FF6B35',
   muted: '#4A7A9B',
 } as const;
+
+const SETTINGS_BTN_TOP = Platform.OS === 'android' ? 44 : 8;
 
 type MainScreenProps = {
   adsReady?: boolean;
@@ -39,6 +46,14 @@ export default function MainScreen({ adsReady = false }: MainScreenProps): React
     manualRefresh,
     permissionGranted,
   } = useAircraftOverhead();
+
+  const { settings, updateSettings } = useAppSettings();
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const filteredAircraft = useMemo(
+    () => filterAircraftByAltitude(aircraft, settings),
+    [aircraft, settings],
+  );
 
   const [highlightedIcaos, setHighlightedIcaos] = useState<ReadonlySet<string>>(
     () => new Set(),
@@ -82,10 +97,15 @@ export default function MainScreen({ adsReady = false }: MainScreenProps): React
     };
   }, []);
 
-  useReapproachNotifications(aircraft, permissionGranted, handleNotified);
+  useReapproachNotifications(
+    filteredAircraft,
+    permissionGranted,
+    handleNotified,
+    settings.notifyRadiusKm,
+  );
 
   const { tracks: trackHistory, fullTrackIcaos, ensureFullTrack } =
-    useAircraftTrackHistory(aircraft);
+    useAircraftTrackHistory(filteredAircraft);
   const [aircraftSelected, setAircraftSelected] = useState(false);
 
   const blinkAnim = useRef(new Animated.Value(1)).current;
@@ -99,7 +119,7 @@ export default function MainScreen({ adsReady = false }: MainScreenProps): React
     ).start();
   }, [blinkAnim]);
 
-  const showStatusBar = !aircraftSelected && aircraft.length === 0;
+  const showStatusBar = !aircraftSelected && filteredAircraft.length === 0;
 
   return (
     <View style={styles.root}>
@@ -115,7 +135,7 @@ export default function MainScreen({ adsReady = false }: MainScreenProps): React
         <SkyMap
           location={location}
           heading={heading}
-          aircraft={aircraft}
+          aircraft={filteredAircraft}
           trackHistory={trackHistory}
           fullTrackIcaos={fullTrackIcaos}
           ensureFullTrack={ensureFullTrack}
@@ -123,6 +143,16 @@ export default function MainScreen({ adsReady = false }: MainScreenProps): React
           highlightedIcaos={highlightedIcaos}
           onSelectionChange={setAircraftSelected}
         />
+
+        <TouchableOpacity
+          style={[styles.settingsBtn, { top: SETTINGS_BTN_TOP + 56 }]}
+          onPress={() => setSettingsOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel={t('settingsOpen')}
+          activeOpacity={0.75}
+        >
+          <MaterialIcons name="tune" size={22} color={COLORS.cyan} />
+        </TouchableOpacity>
 
         {showStatusBar ? (
           <View style={styles.nearestBar} pointerEvents="box-none">
@@ -152,6 +182,13 @@ export default function MainScreen({ adsReady = false }: MainScreenProps): React
       </View>
 
       {adsReady ? <AdBanner placement="bottom" /> : null}
+
+      <SettingsModal
+        visible={settingsOpen}
+        settings={settings}
+        onClose={() => setSettingsOpen(false)}
+        onChange={updateSettings}
+      />
     </View>
   );
 }
@@ -167,6 +204,23 @@ const styles = StyleSheet.create({
   mapSection: {
     flex: 1,
     position: 'relative',
+  },
+  settingsBtn: {
+    position: 'absolute',
+    right: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(6, 11, 24, 0.92)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 212, 255, 0.45)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 4,
   },
   nearestBar: {
     position: 'absolute',

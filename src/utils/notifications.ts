@@ -70,13 +70,16 @@ export async function requestNotificationPermissions(): Promise<boolean> {
   return status === 'granted';
 }
 
-export async function notifyReapproach(aircraft: Aircraft): Promise<void> {
+export async function notifyReapproach(
+  aircraft: Aircraft,
+  radiusKm: number = NOTIFY_RADIUS_KM,
+): Promise<void> {
   const flightLabel =
     aircraft.flightNumber !== '----' ? aircraft.flightNumber : aircraft.icao24.toUpperCase();
 
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: t('notifyTitle', { flight: flightLabel, km: NOTIFY_RADIUS_KM }),
+      title: t('notifyTitle', { flight: flightLabel, km: radiusKm }),
       body: buildNotificationBody(aircraft),
       sound: true,
     },

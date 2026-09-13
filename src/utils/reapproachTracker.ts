@@ -14,7 +14,7 @@ export interface ReapproachEvent {
 
 /**
  * 再接近の検知:
- * - 40km 外 → 40km 内に入った瞬間だけイベントを返す
+ * - 半径外 → 半径内に入った瞬間だけイベントを返す
  * - 同じ接近サイクル中は再通知しない
  * - 初回起動時に既に圏内にいる機は通知しない
  * - 地上機（onGround）は通知しない
@@ -23,14 +23,19 @@ export class ReapproachTracker {
   private readonly states = new Map<string, TrackState>();
   private bootstrapped = false;
 
-  process(aircraft: Aircraft[], now = Date.now()): ReapproachEvent[] {
+  process(
+    aircraft: Aircraft[],
+    now = Date.now(),
+    radiusKm: number = NOTIFY_RADIUS_KM,
+  ): ReapproachEvent[] {
     const events: ReapproachEvent[] = [];
+    const radius = Number.isFinite(radiusKm) && radiusKm > 0 ? radiusKm : NOTIFY_RADIUS_KM;
     const currentKeys = new Set(aircraft.map((ac) => ac.icao24.toLowerCase()));
 
     if (!this.bootstrapped) {
       for (const ac of aircraft) {
         this.states.set(ac.icao24.toLowerCase(), {
-          phase: ac.distanceKm <= NOTIFY_RADIUS_KM ? 'inside' : 'outside',
+          phase: ac.distanceKm <= radius ? 'inside' : 'outside',
           lastSeenAt: now,
         });
       }
@@ -44,7 +49,7 @@ export class ReapproachTracker {
 
       if (!state) {
         this.states.set(key, {
-          phase: ac.distanceKm <= NOTIFY_RADIUS_KM ? 'inside' : 'outside',
+          phase: ac.distanceKm <= radius ? 'inside' : 'outside',
           lastSeenAt: now,
         });
         continue;
@@ -52,7 +57,7 @@ export class ReapproachTracker {
 
       state.lastSeenAt = now;
 
-      if (ac.distanceKm > NOTIFY_RADIUS_KM) {
+      if (ac.distanceKm > radius) {
         state.phase = 'outside';
         continue;
       }

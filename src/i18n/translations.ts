@@ -43,6 +43,19 @@ const en = {
 
   notifyTitle: '✈ {flight} approaching (within {km}km)',
   notifyBody: 'Distance {dist}km · Altitude {alt}m',
+
+  settingsTitle: 'Settings',
+  settingsClose: 'Close',
+  settingsAltitudeRange: 'Displayed altitude',
+  settingsAltitudeHint: 'Only aircraft within this altitude range appear on the map and can trigger alerts.',
+  settingsAltitudeMin: 'Minimum',
+  settingsAltitudeMax: 'Maximum',
+  settingsAltitudeMeters: '{m} m',
+  settingsAltitudeUnlimited: 'No limit',
+  settingsNotifyRadius: 'Notification range',
+  settingsNotifyHint: 'Notify when an airborne aircraft enters this distance from you.',
+  settingsRadiusKm: '{km} km',
+  settingsOpen: 'Open settings',
 } as const;
 
 const ja: Record<TranslationKey, string> = {
@@ -88,6 +101,19 @@ const ja: Record<TranslationKey, string> = {
 
   notifyTitle: '✈ {flight} が接近中（{km}km以内）',
   notifyBody: '距離 {dist}km・高度 {alt}m',
+
+  settingsTitle: '設定',
+  settingsClose: '閉じる',
+  settingsAltitudeRange: '表示する高度',
+  settingsAltitudeHint: 'この高度の範囲内の機体だけ地図に表示され、通知の対象になります。',
+  settingsAltitudeMin: '最低高度',
+  settingsAltitudeMax: '最高高度',
+  settingsAltitudeMeters: '{m} m',
+  settingsAltitudeUnlimited: '制限なし',
+  settingsNotifyRadius: '通知の範囲',
+  settingsNotifyHint: '飛行中の機体が、現在地からこの距離以内に入ったときに通知します。',
+  settingsRadiusKm: '{km} km',
+  settingsOpen: '設定を開く',
 };
 
 export const translations = { en, ja } as const;

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useAircraftOverhead } from '../hooks/useAircraftOverhead';
 import { useAircraftTrackHistory } from '../hooks/useAircraftTrackHistory';
 import { useReapproachNotifications } from '../hooks/useReapproachNotifications';
+import { NOTIFY_HIGHLIGHT_MS } from '../constants/notifications';
 import { t } from '../i18n';
 import SkyMap from '../components/SkyMap';
 import AdBanner from '../components/AdBanner';
@@ -39,7 +40,49 @@ export default function MainScreen({ adsReady = false }: MainScreenProps): React
     permissionGranted,
   } = useAircraftOverhead();
 
-  useReapproachNotifications(aircraft, permissionGranted);
+  const [highlightedIcaos, setHighlightedIcaos] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const highlightTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+
+  const handleNotified = useCallback((icao24: string): void => {
+    const key = icao24.trim().toLowerCase();
+    if (!key) return;
+
+    setHighlightedIcaos((prev) => {
+      if (prev.has(key)) return prev;
+      const next = new Set(prev);
+      next.add(key);
+      return next;
+    });
+
+    const existing = highlightTimersRef.current.get(key);
+    if (existing != null) clearTimeout(existing);
+
+    highlightTimersRef.current.set(
+      key,
+      setTimeout(() => {
+        highlightTimersRef.current.delete(key);
+        setHighlightedIcaos((prev) => {
+          if (!prev.has(key)) return prev;
+          const next = new Set(prev);
+          next.delete(key);
+          return next;
+        });
+      }, NOTIFY_HIGHLIGHT_MS),
+    );
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      for (const timer of highlightTimersRef.current.values()) {
+        clearTimeout(timer);
+      }
+      highlightTimersRef.current.clear();
+    };
+  }, []);
+
+  useReapproachNotifications(aircraft, permissionGranted, handleNotified);
 
   const { tracks: trackHistory, fullTrackIcaos, ensureFullTrack } =
     useAircraftTrackHistory(aircraft);
@@ -77,6 +120,7 @@ export default function MainScreen({ adsReady = false }: MainScreenProps): React
           fullTrackIcaos={fullTrackIcaos}
           ensureFullTrack={ensureFullTrack}
           loading={loading}
+          highlightedIcaos={highlightedIcaos}
           onSelectionChange={setAircraftSelected}
         />
 

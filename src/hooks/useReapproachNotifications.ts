@@ -6,9 +6,15 @@ import { notifyReapproach, requestNotificationPermissions } from '../utils/notif
 export function useReapproachNotifications(
   aircraft: Aircraft[],
   enabled: boolean,
+  onNotified?: (icao24: string) => void,
 ): void {
   const trackerRef = useRef(new ReapproachTracker());
+  const onNotifiedRef = useRef(onNotified);
   const [notifyReady, setNotifyReady] = useState(false);
+
+  useEffect(() => {
+    onNotifiedRef.current = onNotified;
+  }, [onNotified]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -24,6 +30,7 @@ export function useReapproachNotifications(
     const events = trackerRef.current.process(aircraft);
     for (const event of events) {
       void notifyReapproach(event.aircraft);
+      onNotifiedRef.current?.(event.aircraft.icao24);
     }
   }, [aircraft, enabled, notifyReady]);
 }

@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  Animated,
 } from 'react-native';
 import MapView, {
   Marker,
@@ -57,6 +58,8 @@ interface Props {
   /** 選択機体などの出発〜現在までの全軌跡を OpenSky から埋める */
   ensureFullTrack?: (icao24: string) => Promise<void>;
   loading?: boolean;
+  /** 通知直後にハイライトする機体（icao24） */
+  highlightedIcaos?: ReadonlySet<string>;
   /** 機体選択の有無が変わったとき（最近接バーの表示切替用） */
   onSelectionChange?: (selected: boolean) => void;
 }
@@ -65,35 +68,67 @@ function AircraftMarker({
   aircraft,
   isClosest,
   isSelected,
+  isHighlighted,
   mapHeading,
   onPress,
 }: {
   aircraft: Aircraft;
   isClosest: boolean;
   isSelected: boolean;
+  isHighlighted: boolean;
   /** 地図カメラの方位（真北=0、時計回り）。画面上端が北なら 0 */
   mapHeading: number;
   onPress: () => void;
 }): React.JSX.Element {
-  const color = isSelected
-    ? COLORS.white
-    : isClosest
-      ? COLORS.cyan
-      : aircraft.onGround
-        ? COLORS.ground
-        : COLORS.orange;
+  const color = isHighlighted
+    ? COLORS.cyan
+    : isSelected
+      ? COLORS.white
+      : isClosest
+        ? COLORS.cyan
+        : aircraft.onGround
+          ? COLORS.ground
+          : COLORS.orange;
   const headingDeg = aircraft.heading ?? 0;
   // カスタム Marker は画面基準で描画されるので、地図回転分を差し引いて実方位を保つ
   const rotationDeg = headingDeg - mapHeading;
-  const renderKey = `${aircraft.latitude.toFixed(6)}:${aircraft.longitude.toFixed(6)}:${headingDeg.toFixed(1)}:${mapHeading.toFixed(1)}:${isSelected}:${aircraft.onGround}`;
+  const renderKey = `${aircraft.latitude.toFixed(6)}:${aircraft.longitude.toFixed(6)}:${headingDeg.toFixed(1)}:${mapHeading.toFixed(1)}:${isSelected}:${isHighlighted}:${aircraft.onGround}`;
 
+  const pulseAnim = useRef(new Animated.Value(0.35)).current;
   const [tracksViewChanges, setTracksViewChanges] = useState(true);
 
   useEffect(() => {
+    if (!isHighlighted) {
+      pulseAnim.setValue(0.35);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 550,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0.25,
+          duration: 550,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => {
+      loop.stop();
+    };
+  }, [isHighlighted, pulseAnim]);
+
+  useEffect(() => {
     setTracksViewChanges(true);
+    // ハイライト中はマーカー再描画を継続してパルスを地図に反映する
+    if (isHighlighted) return;
     const timer = setTimeout(() => setTracksViewChanges(false), 500);
     return () => clearTimeout(timer);
-  }, [renderKey]);
+  }, [renderKey, isHighlighted]);
 
   return (
     <Marker
@@ -103,20 +138,42 @@ function AircraftMarker({
       }}
       anchor={{ x: 0.5, y: 0.5 }}
       tracksViewChanges={tracksViewChanges}
+      zIndex={isHighlighted ? 100 : isClosest ? 20 : 10}
       onPress={(e) => {
         e.stopPropagation();
         onPress();
       }}
     >
       <View style={styles.markerWrap}>
-        <View
-          style={[
-            styles.planeRotate,
-            isSelected && styles.planeSelected,
-            { transform: [{ rotate: `${rotationDeg}deg` }] },
-          ]}
-        >
-          <MaterialIcons name="flight" size={22} color={color} />
+        <View style={styles.planeSlot}>
+          {isHighlighted ? (
+            <Animated.View
+              style={[
+                styles.planePulse,
+                {
+                  opacity: pulseAnim,
+                  transform: [
+                    {
+                      scale: pulseAnim.interpolate({
+                        inputRange: [0.25, 1],
+                        outputRange: [0.85, 1.35],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            />
+          ) : null}
+          <View
+            style={[
+              styles.planeRotate,
+              isSelected && styles.planeSelected,
+              isHighlighted && styles.planeHighlighted,
+              { transform: [{ rotate: `${rotationDeg}deg` }] },
+            ]}
+          >
+            <MaterialIcons name="flight" size={22} color={color} />
+          </View>
         </View>
         {aircraft.flightNumber !== '----' ? (
           <View style={[styles.labelPill, { borderColor: color }]}>
@@ -206,6 +263,7 @@ export default function SkyMap({
   fullTrackIcaos,
   ensureFullTrack,
   loading,
+  highlightedIcaos,
   onSelectionChange,
 }: Props): React.JSX.Element {
   const mapRef = useRef<MapView>(null);
@@ -575,6 +633,7 @@ export default function SkyMap({
             aircraft={ac}
             isClosest={index === 0}
             isSelected={ac.icao24 === selectedIcao24 && !isNearestSelected}
+            isHighlighted={highlightedIcaos?.has(ac.icao24.toLowerCase()) === true}
             mapHeading={mapHeading}
             onPress={() => handleSelectAircraft(ac.icao24)}
           />
@@ -663,6 +722,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 2,
   },
+  planeSlot: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  planePulse: {
+    position: 'absolute',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0, 212, 255, 0.45)',
+    borderWidth: 2,
+    borderColor: 'rgba(0, 212, 255, 0.9)',
+  },
   airportDot: {
     width: 14,
     height: 14,
@@ -699,6 +773,10 @@ const styles = StyleSheet.create({
   },
   planeSelected: {
     backgroundColor: 'rgba(0, 212, 255, 0.2)',
+    borderRadius: 14,
+  },
+  planeHighlighted: {
+    backgroundColor: 'rgba(0, 212, 255, 0.35)',
     borderRadius: 14,
   },
   labelPill: {

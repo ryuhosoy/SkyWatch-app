@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Animated,
 } from 'react-native';
 import MapView, {
   Marker,
@@ -80,110 +79,111 @@ function AircraftMarker({
   mapHeading: number;
   onPress: () => void;
 }): React.JSX.Element {
-  const color = isHighlighted
-    ? COLORS.cyan
-    : isSelected
-      ? COLORS.white
-      : isClosest
-        ? COLORS.cyan
-        : aircraft.onGround
-          ? COLORS.ground
-          : COLORS.orange;
+  // 通知ハイライトは色・構造に入れない（解除時に Marker スナップショットが壊れて消えるため）
+  const color = isSelected
+    ? COLORS.white
+    : isClosest
+      ? COLORS.cyan
+      : aircraft.onGround
+        ? COLORS.ground
+        : COLORS.orange;
   const headingDeg = aircraft.heading ?? 0;
   // カスタム Marker は画面基準で描画されるので、地図回転分を差し引いて実方位を保つ
   const rotationDeg = headingDeg - mapHeading;
-  const renderKey = `${aircraft.latitude.toFixed(6)}:${aircraft.longitude.toFixed(6)}:${headingDeg.toFixed(1)}:${mapHeading.toFixed(1)}:${isSelected}:${isHighlighted}:${aircraft.onGround}`;
+  const layoutKey = `${aircraft.latitude.toFixed(6)}:${aircraft.longitude.toFixed(6)}:${headingDeg.toFixed(1)}:${mapHeading.toFixed(1)}:${isClosest}:${isSelected}:${aircraft.onGround}`;
 
-  const pulseAnim = useRef(new Animated.Value(0.35)).current;
+  const [pulseOn, setPulseOn] = useState(true);
   const [tracksViewChanges, setTracksViewChanges] = useState(true);
 
   useEffect(() => {
     if (!isHighlighted) {
-      pulseAnim.setValue(0.35);
+      setPulseOn(true);
       return;
     }
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 550,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 0.25,
-          duration: 550,
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-    loop.start();
-    return () => {
-      loop.stop();
-    };
-  }, [isHighlighted, pulseAnim]);
+    setPulseOn(true);
+    const id = setInterval(() => {
+      setPulseOn((prev) => !prev);
+    }, 550);
+    return () => clearInterval(id);
+  }, [isHighlighted]);
 
   useEffect(() => {
     setTracksViewChanges(true);
-    // ハイライト中はマーカー再描画を継続してパルスを地図に反映する
-    if (isHighlighted) return;
-    const timer = setTimeout(() => setTracksViewChanges(false), 500);
+    const timer = setTimeout(() => setTracksViewChanges(false), 1000);
     return () => clearTimeout(timer);
-  }, [renderKey, isHighlighted]);
+  }, [layoutKey]);
+
+  const coordinate = {
+    latitude: aircraft.latitude,
+    longitude: aircraft.longitude,
+  };
+  const hasLabel = aircraft.flightNumber !== '----';
+  const label = hasLabel ? (
+    <View style={[styles.labelPill, { borderColor: color }]}>
+      <Text style={[styles.labelText, { color }]} numberOfLines={1}>
+        {aircraft.flightNumber}
+      </Text>
+    </View>
+  ) : null;
+  // 点滅 Marker も同じ高さになるよう、同じラベル分のスペースを確保する
+  const labelSpacer = hasLabel ? (
+    <View style={[styles.labelPill, styles.labelPillSpacer]}>
+      <Text style={styles.labelText} numberOfLines={1}>
+        {aircraft.flightNumber}
+      </Text>
+    </View>
+  ) : null;
 
   return (
-    <Marker
-      coordinate={{
-        latitude: aircraft.latitude,
-        longitude: aircraft.longitude,
-      }}
-      anchor={{ x: 0.5, y: 0.5 }}
-      tracksViewChanges={tracksViewChanges}
-      zIndex={isHighlighted ? 100 : isClosest ? 20 : 10}
-      onPress={(e) => {
-        e.stopPropagation();
-        onPress();
-      }}
-    >
-      <View style={styles.markerWrap}>
-        <View style={styles.planeSlot}>
-          {isHighlighted ? (
-            <Animated.View
+    <>
+      <Marker
+        coordinate={coordinate}
+        anchor={{ x: 0.5, y: 0.5 }}
+        tracksViewChanges={tracksViewChanges}
+        zIndex={isClosest ? 20 : 10}
+        onPress={(e) => {
+          e.stopPropagation();
+          onPress();
+        }}
+      >
+        <View style={styles.markerWrap}>
+          <View style={styles.planeSlot}>
+            <View
               style={[
-                styles.planePulse,
-                {
-                  opacity: pulseAnim,
-                  transform: [
-                    {
-                      scale: pulseAnim.interpolate({
-                        inputRange: [0.25, 1],
-                        outputRange: [0.85, 1.35],
-                      }),
-                    },
-                  ],
-                },
+                styles.planeRotate,
+                isSelected && styles.planeSelected,
+                { transform: [{ rotate: `${rotationDeg}deg` }] },
               ]}
-            />
-          ) : null}
-          <View
-            style={[
-              styles.planeRotate,
-              isSelected && styles.planeSelected,
-              isHighlighted && styles.planeHighlighted,
-              { transform: [{ rotate: `${rotationDeg}deg` }] },
-            ]}
-          >
-            <MaterialIcons name="flight" size={22} color={color} />
+            >
+              <MaterialIcons name="flight" size={22} color={color} />
+            </View>
           </View>
+          {label}
         </View>
-        {aircraft.flightNumber !== '----' ? (
-          <View style={[styles.labelPill, { borderColor: color }]}>
-            <Text style={[styles.labelText, { color }]} numberOfLines={1}>
-              {aircraft.flightNumber}
-            </Text>
+      </Marker>
+
+      {isHighlighted ? (
+        <Marker
+          coordinate={coordinate}
+          anchor={{ x: 0.5, y: 0.5 }}
+          tracksViewChanges
+          tappable={false}
+          zIndex={100}
+        >
+          <View style={styles.markerWrap} pointerEvents="none">
+            <View style={styles.planeSlot}>
+              <View
+                style={[
+                  styles.planePulse,
+                  pulseOn ? styles.planePulseOn : styles.planePulseOff,
+                ]}
+              />
+            </View>
+            {labelSpacer}
           </View>
-        ) : null}
-      </View>
-    </Marker>
+        </Marker>
+      ) : null}
+    </>
   );
 }
 
@@ -729,13 +729,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   planePulse: {
-    position: 'absolute',
     width: 36,
     height: 36,
     borderRadius: 18,
     backgroundColor: 'rgba(0, 212, 255, 0.45)',
     borderWidth: 2,
     borderColor: 'rgba(0, 212, 255, 0.9)',
+  },
+  planePulseOn: {
+    opacity: 0.9,
+  },
+  planePulseOff: {
+    opacity: 0.3,
   },
   airportDot: {
     width: 14,
@@ -775,10 +780,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 212, 255, 0.2)',
     borderRadius: 14,
   },
-  planeHighlighted: {
-    backgroundColor: 'rgba(0, 212, 255, 0.35)',
-    borderRadius: 14,
-  },
   labelPill: {
     backgroundColor: 'rgba(6, 11, 24, 0.85)',
     borderWidth: 1,
@@ -786,6 +787,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
     paddingVertical: 1,
     maxWidth: 72,
+  },
+  labelPillSpacer: {
+    opacity: 0,
   },
   labelText: {
     fontSize: 9,

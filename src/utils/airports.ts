@@ -34,6 +34,7 @@ const DOMESTIC_AIRPORT_NAMES: Record<string, string> = {
   ROIG: '石垣',
   RJOO: '大阪・伊丹',
   RJNT: '富山',
+  RJOB: '岡山',
   RJNS: '静岡',
   RJFS: '佐賀',
   RJSN: '新潟',
@@ -46,6 +47,7 @@ const DOMESTIC_AIRPORT_NAMES: Record<string, string> = {
   RKSI: '仁川',
   RKSS: '金浦',
   RKPC: '済州',
+  RKTU: '清州',
   RCTP: '台北・桃園',
   RCSS: '台北・松山',
   VHHH: '香港',
@@ -77,6 +79,8 @@ const DOMESTIC_AIRPORT_NAMES_BY_IATA: Record<string, string> = {
   ICN: '仁川',
   GMP: '金浦',
   CJU: '済州',
+  OKJ: '岡山',
+  CJJ: '清州',
   TPE: '台北・桃園',
   TSA: '台北・松山',
   HKG: '香港',
@@ -367,6 +371,7 @@ const CITY_KATAKANA: Record<string, string> = {
 export interface AirportDisplayOptions {
   iata?: string | null;
   municipality?: string | null;
+  /** adsbdb の空港名（name） */
   englishName?: string | null;
   countryIso?: string | null;
 }
@@ -379,10 +384,18 @@ export interface AirportDisplay {
 }
 
 function shortenEnglishName(name: string): string {
-  return name
+  const head = name.split('/')[0].trim();
+  return head
     .replace(/ International Airport$/i, '')
     .replace(/ Airport$/i, '')
     .trim();
+}
+
+/** 辞書に無い空港の表示名。adsbdb の name のみ。 */
+function readablePlaceName(englishName?: string | null): string | null {
+  if (!englishName?.trim()) return null;
+  const shortName = shortenEnglishName(englishName);
+  return shortName || null;
 }
 
 function resolveDomesticName(icao: string, iata?: string | null): string | null {
@@ -456,12 +469,11 @@ export function formatAirportDisplay(
   const icao = code.toUpperCase();
   const iata = options?.iata?.toUpperCase() ?? null;
 
-  // English users: prefer English airport/city names from adsbdb
   if (!isJapanese) {
     const fromEnglish = options?.englishName
       ? shortenEnglishName(options.englishName)
       : null;
-    const englishPrimary = fromEnglish || options?.municipality || iata || icao;
+    const englishPrimary = fromEnglish || iata || icao;
     const secondary =
       iata && iata !== englishPrimary
         ? iata
@@ -482,15 +494,22 @@ export function formatAirportDisplay(
   const primaryName =
     domesticName ??
     domesticFallback ??
-    resolveOverseasKatakana(icao, iata, options?.municipality, options?.englishName);
+    resolveOverseasKatakana(
+      icao,
+      iata,
+      options?.municipality,
+      options?.englishName,
+    );
 
-  if (primaryName) {
-    const secondary = iata && iata !== primaryName ? iata : icao;
+  const placeName = primaryName ?? readablePlaceName(options?.englishName);
+
+  if (placeName) {
+    const secondary = iata && iata !== placeName ? iata : icao;
     return {
       code: icao,
-      primary: primaryName,
-      secondary: secondary !== primaryName ? secondary : null,
-      label: primaryName,
+      primary: placeName,
+      secondary: secondary !== placeName ? secondary : null,
+      label: placeName,
     };
   }
 

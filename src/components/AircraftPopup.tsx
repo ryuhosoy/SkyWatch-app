@@ -134,9 +134,7 @@ export default function AircraftPopup({
           <Text style={styles.popupAirline} numberOfLines={1}>
             {aircraft.airlineName}
           </Text>
-          <Text style={styles.popupRoute} numberOfLines={1}>
-            {formatRoute(aircraft)}
-          </Text>
+          <Text style={styles.popupRoute}>{formatRoute(aircraft)}</Text>
           {model ? (
             <Text style={styles.popupModel} numberOfLines={1}>
               {model}
@@ -258,6 +256,7 @@ const styles = StyleSheet.create({
   },
   popupRoute: {
     fontSize: 12,
+    lineHeight: 16,
     color: COLORS.cyan,
     marginBottom: 2,
   },

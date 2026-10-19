@@ -62,6 +62,8 @@ interface Props {
   /** 選択機体などの出発〜現在までの全軌跡を OpenSky から埋める */
   ensureFullTrack?: (icao24: string) => Promise<void>;
   loading?: boolean;
+  /** 通知直後にハイライトする機体（icao24） */
+  highlightedIcaos?: ReadonlySet<string>;
   /** 機体選択の有無が変わったとき（最近接バーの表示切替用） */
   onSelectionChange?: (selected: boolean) => void;
 }
@@ -97,6 +99,7 @@ function AircraftMarker({
   aircraft,
   isClosest,
   isSelected,
+  isHighlighted,
   mapHeading,
   slotIndex,
   markerIdentifier,
@@ -106,6 +109,7 @@ function AircraftMarker({
   aircraft: Aircraft | null;
   isClosest: boolean;
   isSelected: boolean;
+  isHighlighted: boolean;
   /** 地図カメラの方位。機首の地図上方位計算に使用 */
   mapHeading: number;
   slotIndex: number;
@@ -120,11 +124,24 @@ function AircraftMarker({
   const icaoKey = aircraft?.icao24.trim().toLowerCase() ?? 'hidden';
   const hasLabel = aircraft != null && aircraft.flightNumber !== '----';
   const mapHeadingBucket = Math.round(mapHeading / 3) * 3;
+  const [pulseOn, setPulseOn] = useState(true);
   const renderKey = isHidden
     ? `hidden:${slotIndex}`
-    : `${icaoKey}:${aircraft.latitude.toFixed(5)}:${aircraft.longitude.toFixed(5)}:${headingDeg.toFixed(0)}:${mapHeadingBucket}:${isSelected}:${isClosest}:${aircraft.onGround}:${aircraft.flightNumber}`;
+    : `${icaoKey}:${aircraft.latitude.toFixed(5)}:${aircraft.longitude.toFixed(5)}:${headingDeg.toFixed(0)}:${mapHeadingBucket}:${isSelected}:${isClosest}:${isHighlighted}:${pulseOn}:${aircraft.onGround}:${aircraft.flightNumber}`;
 
   const [tracksViewChanges, setTracksViewChanges] = useState(!isHidden);
+
+  useEffect(() => {
+    if (isHidden || !isHighlighted) {
+      setPulseOn(true);
+      return;
+    }
+    setPulseOn(true);
+    const id = setInterval(() => {
+      setPulseOn((prev) => !prev);
+    }, 550);
+    return () => clearInterval(id);
+  }, [isHidden, isHighlighted]);
 
   useEffect(() => {
     if (isHidden) {
@@ -172,6 +189,13 @@ function AircraftMarker({
   const planeIcon = (
     <View style={styles.planeSlot} collapsable={false}>
       <View
+        pointerEvents="none"
+        style={[
+          styles.planePulse,
+          isHighlighted && pulseOn ? styles.planePulseOn : styles.planePulseOff,
+        ]}
+      />
+      <View
         style={[
           styles.planeRotate,
           isSelected && styles.planeSelected,
@@ -204,7 +228,7 @@ function AircraftMarker({
       identifier={markerIdentifier}
       coordinate={coordinate}
       anchor={aircraftMarkerAnchor(hasLabel)}
-      zIndex={aircraftMarkerZIndex(slotIndex)}
+      zIndex={aircraftMarkerZIndex(slotIndex) + (isHighlighted ? 50 : 0)}
       tracksViewChanges={tracksViewChanges}
       onPress={handlePress}
     >
@@ -298,6 +322,7 @@ export default function SkyMap({
   fullTrackIcaos,
   ensureFullTrack,
   loading,
+  highlightedIcaos,
   onSelectionChange,
 }: Props): React.JSX.Element {
   const mapRef = useRef<MapView>(null);
@@ -722,6 +747,9 @@ export default function SkyMap({
                   ac.icao24 === selectedIcao24 &&
                   !isNearestSelected
                 }
+                isHighlighted={
+                  ac != null && highlightedIcaos?.has(ac.icao24.toLowerCase()) === true
+                }
                 mapHeading={mapHeading}
                 onPress={() => {
                   if (ac != null) handleMarkerSelect(ac.icao24);
@@ -736,6 +764,7 @@ export default function SkyMap({
                 aircraft={ac}
                 isClosest={slotIndex === 0}
                 isSelected={ac.icao24 === selectedIcao24 && !isNearestSelected}
+                isHighlighted={highlightedIcaos?.has(ac.icao24.toLowerCase()) === true}
                 mapHeading={mapHeading}
                 onPress={() => handleMarkerSelect(ac.icao24)}
               />
@@ -833,6 +862,21 @@ const styles = StyleSheet.create({
     height: AIRCRAFT_TAP_SLOT,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  planePulse: {
+    position: 'absolute',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(0, 212, 255, 0.45)',
+    borderWidth: 2,
+    borderColor: 'rgba(0, 212, 255, 0.9)',
+  },
+  planePulseOn: {
+    opacity: 0.9,
+  },
+  planePulseOff: {
+    opacity: 0,
   },
   planeRotate: {
     alignItems: 'center',

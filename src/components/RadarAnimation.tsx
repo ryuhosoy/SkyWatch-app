@@ -66,28 +66,28 @@ export default function RadarAnimation({
 
   const half = size / 2;
 
-  return (
-    <View style={{ width: size, height: size } satisfies ViewStyle}>
-      {([0.25, 0.5, 0.75, 1.0] as const).map((ratio, i) => {
-        const d = size * ratio;
-        return (
-          <View
-            key={i}
-            style={[
-              styles.ring,
-              {
-                width: d,
-                height: d,
-                borderRadius: d / 2,
-                borderColor: i === 3 ? CYAN : CYAN_DIM,
-                borderWidth: i === 3 ? 1.5 : 1,
-                top: half - d / 2,
-                left: half - d / 2,
-              },
-            ]}
-          />
-        );
-      })}
+    return (
+      <View style={{ width: size, height: size } satisfies ViewStyle}>
+        {([0.25, 0.5, 0.75, 1.0] as const).map((ratio, i) => {
+          const d = size * ratio;
+          return (
+            <View
+              key={i}
+              style={[
+                styles.ring,
+                {
+                  width: d,
+                  height: d,
+                  borderRadius: d / 2,
+                  borderColor: i === 3 ? CYAN : CYAN_DIM,
+                  borderWidth: i === 3 ? 1.5 : 1,
+                  top: half - d / 2,
+                  left: half - d / 2,
+                },
+              ]}
+            />
+          );
+        })}
 
       <View
         style={[styles.crossH, { width: size, top: half - 0.5, backgroundColor: CYAN_DIM }]}

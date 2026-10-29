@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Platform,
   View,
   Text,
   StyleSheet,
@@ -343,6 +344,8 @@ export default function SkyMap({
   }, [selectedIcao24, ensureFullTrack]);
 
   const headingBeam = useMemo(() => {
+    // Android は Google マップの現在地レイヤー（青点＋方位矢印）を使う
+    if (Platform.OS === 'android') return null;
     if (!location || heading == null) return null;
     const { lengthM, baseHalfWidthM } = beamSizeFromLatitudeDelta(latitudeDelta);
     return buildHeadingBeam(location, heading, lengthM, baseHalfWidthM);

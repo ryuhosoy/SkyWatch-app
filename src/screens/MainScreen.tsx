@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   Animated,
   SafeAreaView,
-  Platform,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -30,7 +29,8 @@ const COLORS = {
   muted: '#4A7A9B',
 } as const;
 
-const SETTINGS_BTN_TOP = Platform.OS === 'android' ? 44 : 8;
+/** 設定ボタンの上余白（上部広告の下なので OS 共通） */
+const SETTINGS_BTN_TOP = 8;
 
 type MainScreenProps = {
   adsReady?: boolean;

@@ -46,8 +46,8 @@ const COLORS = {
 } as const;
 
 const DEFAULT_DELTA = 0.45;
-/** Android: 凡例・現在地ボタンを少し下げる（ステータスバー等との重なり回避） */
-const MAP_OVERLAY_TOP = Platform.OS === 'android' ? 44 : 8;
+/** 凡例・現在地ボタンの上余白（上部広告の下なので OS 共通） */
+const MAP_OVERLAY_TOP = 8;
 /** Fabric の insert クラッシュ緩和のため地図上マーカー数を制限 */
 const MAX_MAP_AIRCRAFT = 30;
 

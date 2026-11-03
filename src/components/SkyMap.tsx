@@ -48,9 +48,6 @@ const COLORS = {
 const DEFAULT_DELTA = 0.45;
 /** 凡例・現在地ボタンの上余白（上部広告の下なので OS 共通） */
 const MAP_OVERLAY_TOP = 8;
-/** Fabric の insert クラッシュ緩和のため地図上マーカー数を制限 */
-const MAX_MAP_AIRCRAFT = 30;
-
 interface Props {
   location: Coordinates | null;
   /** 端末の向き（真北からの度数）。未取得時は null */
@@ -73,16 +70,10 @@ interface Props {
 const AIRCRAFT_TAP_SLOT = 32;
 /** 便名ラベル行の高さ（anchor 計算・tap 枠用。pill + 文字 + border 込み） */
 const AIRCRAFT_LABEL_HEIGHT = 18;
-/** 重なり時は近い機体（slot 0）を優先 */
-const aircraftMarkerZIndex = (slotIndex: number): number => MAX_MAP_AIRCRAFT - slotIndex;
+/** 重なり時は近い機体（index 0）を優先 */
+const aircraftMarkerZIndex = (index: number): number => Math.max(1, 10_000 - index);
 /** 地図パン直後の誤タップを無視する ms */
 const MAP_GESTURE_TAP_COOLDOWN_MS = 200;
-const ANDROID_SLOT_ID = /^ac-slot-(\d+)$/;
-
-function aircraftSlotIdentifier(slotIndex: number): string {
-  return `ac-slot-${slotIndex}`;
-}
-
 function aircraftMarkerAnchor(hasLabel: boolean): { x: number; y: number } {
   if (!hasLabel) return { x: 0.5, y: 0.5 };
   const totalH = AIRCRAFT_TAP_SLOT + AIRCRAFT_LABEL_HEIGHT;
@@ -112,7 +103,7 @@ function AircraftMarker({
   /** 地図カメラの方位。機首の地図上方位計算に使用 */
   mapHeading: number;
   slotIndex: number;
-  /** Android はスロット固定 ID にしてネイティブ Marker の重複を防ぐ */
+  /** MapView の marker identifier（icao24） */
   markerIdentifier: string;
   hiddenCoordinate?: Coordinates;
   onPress: () => void;
@@ -364,10 +355,12 @@ export default function SkyMap({
           : { ...ac, ...aligned };
       byIcao.set(key, { ...normalized, icao24: key });
     }
-    return Array.from(byIcao.values());
+    return Array.from(byIcao.values()).sort(
+      (a, b) => a.distanceKm - b.distanceKm,
+    );
   }, [aircraft, trackHistory]);
 
-  const mapAircraft = displayAircraft.slice(0, MAX_MAP_AIRCRAFT);
+  const mapAircraft = displayAircraft;
   const highlightedAircraft = useMemo(
     () =>
       highlightedIcaos == null || highlightedIcaos.size === 0
@@ -387,15 +380,6 @@ export default function SkyMap({
     }, 550);
     return () => clearInterval(id);
   }, [highlightedAircraft.length]);
-
-  /** Android: スロット数を固定し Marker の add/remove による残像・重複を防ぐ */
-  const aircraftMarkerSlots = useMemo(() => {
-    const slots: Array<Aircraft | null> = Array.from({ length: MAX_MAP_AIRCRAFT }, () => null);
-    mapAircraft.forEach((ac, index) => {
-      slots[index] = ac;
-    });
-    return slots;
-  }, [mapAircraft]);
 
   const selectedAircraft =
     selectedIcao24 != null
@@ -600,23 +584,14 @@ export default function SkyMap({
     handleSelectAircraft(null);
   }, [handleSelectAircraft, shouldIgnoreMapTap]);
 
-  /** Android: スロット ID から現在の機体を引く（identifier は icao 固定にしない） */
   const handleAndroidMarkerPress = useCallback(
     (event: { nativeEvent: { id?: string } }): void => {
-      const id = event.nativeEvent.id?.trim().toLowerCase();
-      if (!id) return;
-
-      const slotMatch = ANDROID_SLOT_ID.exec(id);
-      const icao24 =
-        slotMatch != null
-          ? aircraftMarkerSlots[Number(slotMatch[1])]?.icao24 ?? null
-          : id;
-
-      if (icao24 == null) return;
+      const icao24 = event.nativeEvent.id?.trim().toLowerCase();
+      if (!icao24) return;
       ignoreMapPressRef.current = true;
       handleMarkerSelect(icao24);
     },
-    [handleMarkerSelect, aircraftMarkerSlots],
+    [handleMarkerSelect],
   );
 
   useEffect(() => {
@@ -746,38 +721,18 @@ export default function SkyMap({
             zIndex={4}
           />
         ))}
-        {Platform.OS === 'android'
-          ? aircraftMarkerSlots.map((ac, slotIndex) => (
-              <AircraftMarker
-                key={aircraftSlotIdentifier(slotIndex)}
-                slotIndex={slotIndex}
-                markerIdentifier={aircraftSlotIdentifier(slotIndex)}
-                aircraft={ac}
-                hiddenCoordinate={hiddenPoint}
-                isClosest={slotIndex === 0 && ac != null}
-                isSelected={
-                  ac != null &&
-                  ac.icao24 === selectedIcao24 &&
-                  !isNearestSelected
-                }
-                mapHeading={mapHeading}
-                onPress={() => {
-                  if (ac != null) handleMarkerSelect(ac.icao24);
-                }}
-              />
-            ))
-          : mapAircraft.map((ac, slotIndex) => (
-              <AircraftMarker
-                key={ac.icao24}
-                slotIndex={slotIndex}
-                markerIdentifier={ac.icao24}
-                aircraft={ac}
-                isClosest={slotIndex === 0}
-                isSelected={ac.icao24 === selectedIcao24 && !isNearestSelected}
-                mapHeading={mapHeading}
-                onPress={() => handleMarkerSelect(ac.icao24)}
-              />
-            ))}
+        {mapAircraft.map((ac, slotIndex) => (
+          <AircraftMarker
+            key={ac.icao24}
+            slotIndex={slotIndex}
+            markerIdentifier={ac.icao24}
+            aircraft={ac}
+            isClosest={slotIndex === 0}
+            isSelected={ac.icao24 === selectedIcao24 && !isNearestSelected}
+            mapHeading={mapHeading}
+            onPress={() => handleMarkerSelect(ac.icao24)}
+          />
+        ))}
       </MapView>
 
       <TouchableOpacity

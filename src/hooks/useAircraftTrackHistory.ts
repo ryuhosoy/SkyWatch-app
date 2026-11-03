@@ -4,8 +4,6 @@ import { fetchAircraftTrack } from '../utils/opensky';
 
 /** 受信から消えた機体の履歴を捨てるまでの時間 */
 const STALE_AFTER_MS = 10 * 60_000;
-/** 地図表示上限と揃えて事前キャッシュする機数 */
-const MAX_PREFETCH_AIRCRAFT = 30;
 /** /tracks/all 同時取得数（429 回避） */
 const PREFETCH_CONCURRENCY = 2;
 
@@ -133,7 +131,7 @@ export function useAircraftTrackHistory(aircraft: Aircraft[]): {
   useEffect(() => {
     const needed: string[] = [];
     const seen = new Set<string>();
-    for (const ac of aircraft.slice(0, MAX_PREFETCH_AIRCRAFT)) {
+    for (const ac of aircraft) {
       const key = ac.icao24.toLowerCase();
       if (
         !key ||

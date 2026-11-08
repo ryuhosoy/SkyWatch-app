@@ -1,5 +1,8 @@
-/** Google 公式テスト（iOS ネイティブ）https://developers.google.com/admob/ios/native?hl=ja */
+import { Platform } from 'react-native';
+
+/** Google 公式テスト（ネイティブ） */
 const IOS_TEST_NATIVE = 'ca-app-pub-3940256099942544/3986624511';
+const ANDROID_TEST_NATIVE = 'ca-app-pub-3940256099942544/2247696110';
 
 export type BannerPlacement = 'top' | 'bottom';
 
@@ -21,15 +24,25 @@ const AD_KEYWORDS = ['aviation', 'aircraft', 'flight', 'travel'] as const;
 
 export const adRequestKeywords = [...AD_KEYWORDS];
 
-const NATIVE_UNIT_ENV: Record<NativeAdCorner, string | undefined> = {
+const NATIVE_UNIT_ENV_IOS: Record<NativeAdCorner, string | undefined> = {
   topLeft: process.env.EXPO_PUBLIC_ADMOB_NATIVE_UNIT_ID_TOP_LEFT,
   topRight: process.env.EXPO_PUBLIC_ADMOB_NATIVE_UNIT_ID_TOP_RIGHT,
   bottomLeft: process.env.EXPO_PUBLIC_ADMOB_NATIVE_UNIT_ID_BOTTOM_LEFT,
   bottomRight: process.env.EXPO_PUBLIC_ADMOB_NATIVE_UNIT_ID_BOTTOM_RIGHT,
 };
 
+const NATIVE_UNIT_ENV_ANDROID: Record<NativeAdCorner, string | undefined> = {
+  topLeft: process.env.EXPO_PUBLIC_ADMOB_ANDROID_NATIVE_UNIT_ID_TOP_LEFT,
+  topRight: process.env.EXPO_PUBLIC_ADMOB_ANDROID_NATIVE_UNIT_ID_TOP_RIGHT,
+  bottomLeft: process.env.EXPO_PUBLIC_ADMOB_ANDROID_NATIVE_UNIT_ID_BOTTOM_LEFT,
+  bottomRight: process.env.EXPO_PUBLIC_ADMOB_ANDROID_NATIVE_UNIT_ID_BOTTOM_RIGHT,
+};
+
 export function getNativeAdUnitId(corner: NativeAdCorner): string {
-  return NATIVE_UNIT_ENV[corner]?.trim() || IOS_TEST_NATIVE;
+  if (Platform.OS === 'android') {
+    return NATIVE_UNIT_ENV_ANDROID[corner]?.trim() || ANDROID_TEST_NATIVE;
+  }
+  return NATIVE_UNIT_ENV_IOS[corner]?.trim() || IOS_TEST_NATIVE;
 }
 
 /** 帯内の列位置から四隅の corner を決める（左端=左、右端=右） */

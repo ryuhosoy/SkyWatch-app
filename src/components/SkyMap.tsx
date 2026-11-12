@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import MapView, {
-  Circle,
   Marker,
   Polygon,
   Polyline,
@@ -91,6 +90,8 @@ function AircraftMarker({
   aircraft,
   isClosest,
   isSelected,
+  isNotifyHighlighted,
+  notifyHighlightPulse,
   mapHeading,
   slotIndex,
   markerIdentifier,
@@ -100,6 +101,8 @@ function AircraftMarker({
   aircraft: Aircraft | null;
   isClosest: boolean;
   isSelected: boolean;
+  isNotifyHighlighted: boolean;
+  notifyHighlightPulse: boolean;
   /** 地図カメラの方位。機首の地図上方位計算に使用 */
   mapHeading: number;
   slotIndex: number;
@@ -116,13 +119,17 @@ function AircraftMarker({
   const mapHeadingBucket = Math.round(mapHeading / 3) * 3;
   const renderKey = isHidden
     ? `hidden:${slotIndex}`
-    : `${icaoKey}:${aircraft.latitude.toFixed(5)}:${aircraft.longitude.toFixed(5)}:${headingDeg.toFixed(0)}:${mapHeadingBucket}:${isSelected}:${isClosest}:${aircraft.onGround}:${aircraft.flightNumber}`;
+    : `${icaoKey}:${aircraft.latitude.toFixed(5)}:${aircraft.longitude.toFixed(5)}:${headingDeg.toFixed(0)}:${mapHeadingBucket}:${isSelected}:${isClosest}:${isNotifyHighlighted}:${notifyHighlightPulse}:${aircraft.onGround}:${aircraft.flightNumber}`;
 
   const [tracksViewChanges, setTracksViewChanges] = useState(!isHidden);
 
   useEffect(() => {
     if (isHidden) {
       setTracksViewChanges(false);
+      return;
+    }
+    if (isNotifyHighlighted) {
+      setTracksViewChanges(true);
       return;
     }
     setTracksViewChanges(true);
@@ -133,7 +140,7 @@ function AircraftMarker({
       }
     }, Platform.OS === 'android' ? 400 : 500);
     return () => clearTimeout(timer);
-  }, [renderKey, isHidden]);
+  }, [renderKey, isHidden, isNotifyHighlighted]);
 
   if (isHidden) {
     const coordinate = hiddenCoordinate ?? { latitude: 0, longitude: 0 };
@@ -165,6 +172,21 @@ function AircraftMarker({
 
   const planeIcon = (
     <View style={styles.planeSlot} collapsable={false}>
+      {isNotifyHighlighted ? (
+        <View
+          style={[
+            styles.notifyHighlightRing,
+            {
+              borderColor: notifyHighlightPulse
+                ? 'rgba(0, 212, 255, 0.95)'
+                : 'rgba(0, 212, 255, 0.35)',
+              backgroundColor: notifyHighlightPulse
+                ? 'rgba(0, 212, 255, 0.28)'
+                : 'rgba(0, 212, 255, 0.08)',
+            },
+          ]}
+        />
+      ) : null}
       <View
         style={[
           styles.planeRotate,
@@ -361,17 +383,10 @@ export default function SkyMap({
   }, [aircraft, trackHistory]);
 
   const mapAircraft = displayAircraft;
-  const highlightedAircraft = useMemo(
-    () =>
-      highlightedIcaos == null || highlightedIcaos.size === 0
-        ? []
-        : mapAircraft.filter((ac) => highlightedIcaos.has(ac.icao24.toLowerCase())),
-    [mapAircraft, highlightedIcaos],
-  );
   const [highlightPulseOn, setHighlightPulseOn] = useState(true);
 
   useEffect(() => {
-    if (highlightedAircraft.length === 0) {
+    if (highlightedIcaos == null || highlightedIcaos.size === 0) {
       setHighlightPulseOn(true);
       return;
     }
@@ -379,7 +394,7 @@ export default function SkyMap({
       setHighlightPulseOn((prev) => !prev);
     }, 550);
     return () => clearInterval(id);
-  }, [highlightedAircraft.length]);
+  }, [highlightedIcaos]);
 
   const selectedAircraft =
     selectedIcao24 != null
@@ -696,21 +711,6 @@ export default function SkyMap({
           lineDashPattern={[10, 8]}
           zIndex={2}
         />
-        {highlightedAircraft.map((ac) => (
-          <Circle
-            key={`hl-${ac.icao24}`}
-            center={{ latitude: ac.latitude, longitude: ac.longitude }}
-            radius={Math.min(8_000, Math.max(80, latitudeDelta * METERS_PER_DEG_LAT * 0.018))}
-            fillColor={
-              highlightPulseOn ? 'rgba(0, 212, 255, 0.28)' : 'rgba(0, 212, 255, 0.08)'
-            }
-            strokeColor={
-              highlightPulseOn ? 'rgba(0, 212, 255, 0.95)' : 'rgba(0, 212, 255, 0.35)'
-            }
-            strokeWidth={2}
-            zIndex={3}
-          />
-        ))}
         {routeArrowCoords.map((coords, index) => (
           <Polygon
             key={`route-arrow-${index}`}
@@ -729,6 +729,11 @@ export default function SkyMap({
             aircraft={ac}
             isClosest={slotIndex === 0}
             isSelected={ac.icao24 === selectedIcao24 && !isNearestSelected}
+            isNotifyHighlighted={
+              highlightedIcaos != null &&
+              highlightedIcaos.has(ac.icao24.toLowerCase())
+            }
+            notifyHighlightPulse={highlightPulseOn}
             mapHeading={mapHeading}
             onPress={() => handleMarkerSelect(ac.icao24)}
           />
@@ -826,6 +831,11 @@ const styles = StyleSheet.create({
     height: AIRCRAFT_TAP_SLOT,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  notifyHighlightRing: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: AIRCRAFT_TAP_SLOT / 2,
+    borderWidth: 2,
   },
   planeRotate: {
     alignItems: 'center',

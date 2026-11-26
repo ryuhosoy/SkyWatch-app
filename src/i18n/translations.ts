@@ -56,6 +56,18 @@ const en = {
   settingsNotifyHint: 'Notify when an airborne aircraft enters this distance from you.',
   settingsRadiusKm: '{km} km',
   settingsOpen: 'Open settings',
+
+  arOpen: 'Open AR sky view',
+  arClose: 'Back to map',
+  arTitle: 'Sky AR',
+  arHint: 'Aim at the sky — details appear when centered',
+  arLocked: 'In view',
+  arCameraLoading: 'Loading camera...',
+  arCameraPermission: 'Camera access is required to identify aircraft in the sky.',
+  arGrantCamera: 'Allow camera',
+  arNoHeading: 'Waiting for compass...',
+  arCalibrating: 'Aligning sensors...',
+  arNoAircraftInView: 'No aircraft in this direction',
 } as const;
 
 const ja: Record<TranslationKey, string> = {
@@ -114,6 +126,18 @@ const ja: Record<TranslationKey, string> = {
   settingsNotifyHint: '飛行中の機体が、現在地からこの距離以内に入ったときに通知します。',
   settingsRadiusKm: '{km} km',
   settingsOpen: '設定を開く',
+
+  arOpen: 'AR空モードを開く',
+  arClose: '地図に戻る',
+  arTitle: '空 AR',
+  arHint: '空に向けると照準中の機体の詳細を表示します',
+  arLocked: '照準中',
+  arCameraLoading: 'カメラを準備中...',
+  arCameraPermission: '頭上の航空機をARで表示するにはカメラの許可が必要です。',
+  arGrantCamera: 'カメラを許可',
+  arNoHeading: 'コンパスを取得中...',
+  arCalibrating: 'センサーを同期中...',
+  arNoAircraftInView: 'この方向に航空機はありません',
 };
 
 export const translations = { en, ja } as const;

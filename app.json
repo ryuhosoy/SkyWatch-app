@@ -14,7 +14,8 @@
       "supportsTablet": true,
       "infoPlist": {
         "CFBundleAllowMixedLocalizations": true,
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "The camera is used to show aircraft details in the sky using AR."
       },
       "bundleIdentifier": "com.ryuhosoy.FlightOverhead"
     },
@@ -27,6 +28,7 @@
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
+        "CAMERA",
         "POST_NOTIFICATIONS",
         "FOREGROUND_SERVICE",
         "FOREGROUND_SERVICE_LOCATION"
@@ -46,6 +48,13 @@
         "react-native-maps",
         {
           "androidGoogleMapsApiKey": "AIzaSyBIn55t31QKFTWolRs_4e60iQYs_JmRFfA"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "The camera is used to show aircraft details in the sky using AR.",
+          "recordAudioAndroid": false
         }
       ],
       [

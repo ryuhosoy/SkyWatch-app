@@ -1,9 +1,10 @@
 {
   "ios": {
     "CFBundleDisplayName": "Flight Overhead",
-    "NSLocationWhenInUseUsageDescription": "頭上を飛ぶ航空機を検索するために現在地が必要です。",
-    "NSLocationAlwaysUsageDescription": "バックグラウンドでも航空機を追跡するために現在地が必要です。",
-    "NSLocationAlwaysAndWhenInUseUsageDescription": "頭上を飛ぶ航空機の検索・追跡のために現在地が必要です。"
+    "NSLocationWhenInUseUsageDescription": "付近を飛ぶ航空機を見つけるために、現在地を使用します。",
+    "NSLocationAlwaysUsageDescription": "バックグラウンド中も含め、付近の航空機を追跡するために現在地を使用します。",
+    "NSLocationAlwaysAndWhenInUseUsageDescription": "付近を飛ぶ航空機の検出と追跡のために、現在地を使用します。",
+    "NSCameraUsageDescription": "ARで空の航空機詳細を表示するためにカメラを使用します。"
   },
   "android": {
     "app_name": "Flight Overhead"

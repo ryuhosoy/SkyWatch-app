@@ -38,7 +38,14 @@ const NATIVE_UNIT_ENV_ANDROID: Record<NativeAdCorner, string | undefined> = {
   bottomRight: process.env.EXPO_PUBLIC_ADMOB_ANDROID_NATIVE_UNIT_ID_BOTTOM_RIGHT,
 };
 
+/** development / preview は Google 公式テスト ID（本番ユニットは production のみ） */
+const useTestAdUnits =
+  __DEV__ || process.env.EXPO_PUBLIC_USE_TEST_ADS === 'true';
+
 export function getNativeAdUnitId(corner: NativeAdCorner): string {
+  if (useTestAdUnits) {
+    return Platform.OS === 'android' ? ANDROID_TEST_NATIVE : IOS_TEST_NATIVE;
+  }
   if (Platform.OS === 'android') {
     return NATIVE_UNIT_ENV_ANDROID[corner]?.trim() || ANDROID_TEST_NATIVE;
   }

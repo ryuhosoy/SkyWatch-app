@@ -1,0 +1,11 @@
+# Keep EAS upload small and avoid iCloud-evicted junk
+.git.broken/
+marketing/
+marketing-captures/
+scripts/
+.expo/
+**/.venv/
+**/node_modules/
+ios/
+android/
+.env

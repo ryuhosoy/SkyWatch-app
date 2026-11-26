@@ -17,8 +17,11 @@ import { NOTIFY_HIGHLIGHT_MS } from '../constants/notifications';
 import { filterAircraftByAltitude } from '../utils/aircraftFilters';
 import { t } from '../i18n';
 import SkyMap from '../components/SkyMap';
+import SkyARView from '../components/SkyARView';
 import AdBanner from '../components/AdBanner';
 import SettingsModal from '../components/SettingsModal';
+
+type AppViewMode = 'map' | 'ar';
 
 const COLORS = {
   bg: '#060B18',
@@ -49,6 +52,7 @@ export default function MainScreen({ adsReady = false }: MainScreenProps): React
 
   const { settings, updateSettings } = useAppSettings();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<AppViewMode>('map');
 
   const filteredAircraft = useMemo(
     () => filterAircraftByAltitude(aircraft, settings),
@@ -132,29 +136,52 @@ export default function MainScreen({ adsReady = false }: MainScreenProps): React
       )}
 
       <View style={styles.mapSection}>
-        <SkyMap
-          location={location}
-          heading={heading}
-          aircraft={filteredAircraft}
-          trackHistory={trackHistory}
-          fullTrackIcaos={fullTrackIcaos}
-          ensureFullTrack={ensureFullTrack}
-          loading={loading}
-          highlightedIcaos={highlightedIcaos}
-          onSelectionChange={setAircraftSelected}
-        />
+        {viewMode === 'map' ? (
+          <SkyMap
+            location={location}
+            heading={heading}
+            aircraft={filteredAircraft}
+            trackHistory={trackHistory}
+            fullTrackIcaos={fullTrackIcaos}
+            ensureFullTrack={ensureFullTrack}
+            loading={loading}
+            highlightedIcaos={highlightedIcaos}
+            onSelectionChange={setAircraftSelected}
+          />
+        ) : (
+          <SkyARView
+            location={location}
+            heading={heading}
+            aircraft={filteredAircraft}
+            onClose={() => setViewMode('map')}
+          />
+        )}
 
-        <TouchableOpacity
-          style={[styles.settingsBtn, { top: SETTINGS_BTN_TOP + 56 }]}
-          onPress={() => setSettingsOpen(true)}
-          accessibilityRole="button"
-          accessibilityLabel={t('settingsOpen')}
-          activeOpacity={0.75}
-        >
-          <MaterialIcons name="tune" size={22} color={COLORS.cyan} />
-        </TouchableOpacity>
+        {viewMode === 'map' ? (
+          <TouchableOpacity
+            style={[styles.arBtn, { top: SETTINGS_BTN_TOP + 56 }]}
+            onPress={() => setViewMode('ar')}
+            accessibilityRole="button"
+            accessibilityLabel={t('arOpen')}
+            activeOpacity={0.75}
+          >
+            <MaterialIcons name="photo-camera" size={22} color={COLORS.cyan} />
+          </TouchableOpacity>
+        ) : null}
 
-        {showStatusBar ? (
+        {viewMode === 'map' ? (
+          <TouchableOpacity
+            style={[styles.settingsBtn, { top: SETTINGS_BTN_TOP + 56 + 52 }]}
+            onPress={() => setSettingsOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel={t('settingsOpen')}
+            activeOpacity={0.75}
+          >
+            <MaterialIcons name="tune" size={22} color={COLORS.cyan} />
+          </TouchableOpacity>
+        ) : null}
+
+        {viewMode === 'map' && showStatusBar ? (
           <View style={styles.nearestBar} pointerEvents="box-none">
             {loading ? (
               <Animated.Text style={[styles.nearestBarStatus, { opacity: blinkAnim }]}>
@@ -204,6 +231,23 @@ const styles = StyleSheet.create({
   mapSection: {
     flex: 1,
     position: 'relative',
+  },
+  arBtn: {
+    position: 'absolute',
+    right: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(6, 11, 24, 0.92)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 212, 255, 0.45)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 4,
   },
   settingsBtn: {
     position: 'absolute',

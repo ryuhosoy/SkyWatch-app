@@ -6,17 +6,28 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_USE_TEST_ADS": "true"
+      }
     },
     "development-simulator": {
       "developmentClient": true,
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_USE_TEST_ADS": "true"
+      },
       "ios": {
         "simulator": true
       }
     },
     "preview": {
       "distribution": "internal",
+      "environment": "preview",
+      "env": {
+        "EXPO_PUBLIC_USE_TEST_ADS": "true",
+        "EXPO_NO_DOTENV": "1"
+      },
       "android": {
         "buildType": "apk"
       }
